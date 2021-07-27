@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: install tools
-        run: sudo apt-get install libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev
+        run: sudo apt-get install libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libpango1.0-dev
           
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
@@ -31,7 +31,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: install tools
-        run: sudo apt-get install libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev
+        run: sudo apt-get install libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libpango1.0-dev
           
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
@@ -43,14 +43,14 @@ jobs:
       - uses: actions-rs/cargo@v1
         with:
           command: check
-          args: --lib --target wasm32-unknown-unknown
+          args: --target wasm32-unknown-unknown
 
   test:
     name: Test Suite
     runs-on: ubuntu-latest
     steps:
       - name: install tools
-        run: sudo apt-get install libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev
+        run: sudo apt-get install libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libpango1.0-dev
           
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
@@ -58,18 +58,17 @@ jobs:
           profile: minimal
           toolchain: stable
           override: true
-      - run: sudo apt-get install libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev # egui_glium dependencies
+      - run: sudo apt-get install libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libpango1.0-dev # egui_glium dependencies
       - uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --lib
 
   fmt:
     name: Rustfmt
     runs-on: ubuntu-latest
     steps:
       - name: install tools
-        run: sudo apt-get install libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev
+        run: sudo apt-get install libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libpango1.0-dev
           
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
@@ -88,7 +87,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: install tools
-        run: sudo apt-get install libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev
+        run: sudo apt-get install libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libpango1.0-dev
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
         with:
