@@ -16,8 +16,8 @@ impl Default for App {
             // Example stuff:
             file_name: "".to_owned(),
             zoom: 0.0,
-            window_height: 1080,
-            window_width: 1980,
+            window_height: 600,
+            window_width: 800,
         }
     }
 }

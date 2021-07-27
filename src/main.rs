@@ -12,8 +12,8 @@ use winit::event_loop::ControlFlow;
 
 mod app;
 
-const INITIAL_WIDTH: u32 = 1920;
-const INITIAL_HEIGHT: u32 = 1080;
+const INITIAL_WIDTH: u32 = 800;
+const INITIAL_HEIGHT: u32 = 600;
 const OUTPUT_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Bgra8UnormSrgb;
 
 /// A custom event type for the winit app.
