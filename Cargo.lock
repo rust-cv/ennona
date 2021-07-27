@@ -461,9 +461,9 @@ checksum = "9ea835d29036a4087793836fa931b08837ad5e957da9e23886b29586fb9b6650"
 
 [[package]]
 name = "eframe"
-version = "0.13.0"
+version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "594782671876a6114ea77d48d1cf1ca6ca2397cec9e66951caab2cafe0c5c161"
+checksum = "d3677cb27e360092b5078c5aaae1edf4b84d900b2e5ee61e93c71c4f2574e97a"
 dependencies = [
  "egui",
  "egui_glium",
@@ -484,9 +484,9 @@ dependencies = [
 
 [[package]]
 name = "egui_glium"
-version = "0.13.0"
+version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aa94042d2749d9b6efd7cc550595e6f25c5dd3f8ac895cdb5fa2e3751358aa1b"
+checksum = "da94629a664a360708c91495dbae0a55c0e05acec5e05fcc6c99beabd6036036"
 dependencies = [
  "copypasta",
  "directories-next",
