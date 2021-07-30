@@ -8,14 +8,14 @@ env:
   # https://rustwasm.github.io/docs/wasm-bindgen/web-sys/unstable-apis.html
   RUSTFLAGS: --cfg=web_sys_unstable_apis
 
+#       - name: install tools
+#         run: sudo apt-get install libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libpango1.0-dev libcairo2-dev libglib2.0-dev libatk1.0-dev libgdk-pixbuf2.0-dev libgtk-3-dev
+
 jobs:
   check:
     name: Check
     runs-on: ubuntu-latest
     steps:
-      - name: install tools
-        run: sudo apt update & & sudo apt upgrade & sudo apt-get install libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libpango1.0-dev
-
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
         with:
@@ -30,9 +30,6 @@ jobs:
     name: Test Suite
     runs-on: ubuntu-latest
     steps:
-      - name: install tools
-        run: sudo apt-get install libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libpango1.0-dev libcairo2-dev libglib2.0-dev libatk1.0-dev libgdk-pixbuf2.0-dev libgtk-3-dev
-
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
         with:
@@ -47,9 +44,6 @@ jobs:
     name: Rustfmt
     runs-on: ubuntu-latest
     steps:
-      - name: install tools
-        run: sudo apt-get install libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libpango1.0-dev
-
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
         with:
@@ -66,8 +60,6 @@ jobs:
     name: Clippy
     runs-on: ubuntu-latest
     steps:
-      - name: install tools
-        run: sudo apt-get install libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libpango1.0-dev
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
         with:
