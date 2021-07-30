@@ -14,51 +14,31 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: install tools
-        run: sudo apt-get install libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libpango1.0-dev
-          
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
-      - uses: actions-rs/cargo@v1
-        with:
-          command: check
+        run: sudo apt update & & sudo apt upgrade & sudo apt-get install libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libpango1.0-dev
 
-  check_wasm:
-    name: Check wasm32
-    runs-on: ubuntu-latest
-    steps:
-      - name: install tools
-        run: sudo apt-get install libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libpango1.0-dev
-          
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: stable
           override: true
-      - run: rustup target add wasm32-unknown-unknown
       - uses: actions-rs/cargo@v1
         with:
           command: check
-          args: --target wasm32-unknown-unknown
 
   test:
     name: Test Suite
     runs-on: ubuntu-latest
     steps:
       - name: install tools
-        run: sudo apt-get install libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libpango1.0-dev
-          
+        run: sudo apt-get install libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libpango1.0-dev libcairo2-dev libglib2.0-dev libatk1.0-dev libgdk-pixbuf2.0-dev libgtk-3-dev
+
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: stable
           override: true
-      - run: sudo apt-get install libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libpango1.0-dev # egui_glium dependencies
       - uses: actions-rs/cargo@v1
         with:
           command: test
@@ -69,7 +49,7 @@ jobs:
     steps:
       - name: install tools
         run: sudo apt-get install libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libpango1.0-dev
-          
+
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
         with:
