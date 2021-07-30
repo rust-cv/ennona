@@ -64,7 +64,7 @@ fn main() {
 
     println!("Graphics Adapter: {}", adapter.get_info().name,);
 
-    let (mut device, mut queue) = block_on(adapter.request_device(
+    let (device, queue) = block_on(adapter.request_device(
         &wgpu::DeviceDescriptor {
             features: wgpu::Features::default(),
             limits: wgpu::Limits::default(),
@@ -160,7 +160,7 @@ fn main() {
                 };
                 egui_rpass.update_texture(&device, &queue, &platform.context().texture());
                 egui_rpass.update_user_textures(&device, &queue);
-                egui_rpass.update_buffers(&mut device, &mut queue, &paint_jobs, &screen_descriptor);
+                egui_rpass.update_buffers(&device, &queue, &paint_jobs, &screen_descriptor);
 
                 // Record all render passes.
                 egui_rpass.execute(
