@@ -1,6 +1,8 @@
 use std::borrow::Cow;
 
+use egui::FontDefinitions;
 use egui_wgpu_backend::RenderPass;
+use egui_winit_platform::{Platform, PlatformDescriptor};
 use lazy_static::lazy_static;
 use wgpu::{util::DeviceExt, SwapChainError};
 use winit::window::Window;
@@ -75,11 +77,11 @@ impl State {
             format: adapter.get_swap_chain_preferred_format(&surface).unwrap(),
             width: size.width,
             height: size.height,
-            present_mode: wgpu::PresentMode::Fifo,
+            present_mode: wgpu::PresentMode::Mailbox,
         };
         let swap_chain = device.create_swap_chain(&surface, &sc_desc);
-        let shader = device.create_shader_module(&wgpu::ShaderModuleDescriptor {
-            label: Some("The Shader"),
+        let point_shader = device.create_shader_module(&wgpu::ShaderModuleDescriptor {
+            label: Some("point-shader"),
             source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("shaders/shader.wgsl"))),
             flags: wgpu::ShaderFlags::VALIDATION | wgpu::ShaderFlags::EXPERIMENTAL_TRANSLATION,
         });
@@ -93,12 +95,12 @@ impl State {
             label: Some("Render Pipeline"),
             layout: Some(&render_pipeline_layout),
             vertex: wgpu::VertexState {
-                module: &shader,
+                module: &point_shader,
                 entry_point: "vs_main",
                 buffers: &[Vertex::desc()],
             },
             fragment: Some(wgpu::FragmentState {
-                module: &shader,
+                module: &point_shader,
                 entry_point: "fs_main",
                 targets: &[sc_desc.format.into()],
             }),
@@ -117,6 +119,14 @@ impl State {
                 color: [0.0, 0.0, 0.0],
             }]),
             usage: wgpu::BufferUsage::VERTEX,
+        });
+
+        let mut platform = Platform::new(PlatformDescriptor {
+            physical_width: size.width as u32,
+            physical_height: size.height as u32,
+            scale_factor: window.scale_factor(),
+            font_definitions: FontDefinitions::default(),
+            style: Default::default(),
         });
 
         Self {

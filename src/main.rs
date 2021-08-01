@@ -12,8 +12,8 @@ use winit::event_loop::ControlFlow;
 mod app;
 mod gpu;
 
-const INITIAL_WIDTH: u32 = 1920;
-const INITIAL_HEIGHT: u32 = 1080;
+const INITIAL_WIDTH: u32 = 800;
+const INITIAL_HEIGHT: u32 = 600;
 const OUTPUT_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Bgra8UnormSrgb;
 
 /// A custom event type for the winit app.
@@ -64,7 +64,7 @@ fn main() {
 
     println!("Graphics Adapter: {}", adapter.get_info().name,);
 
-    let (mut device, mut queue) = block_on(adapter.request_device(
+    let (device, queue) = block_on(adapter.request_device(
         &wgpu::DeviceDescriptor {
             features: wgpu::Features::default(),
             limits: wgpu::Limits::default(),
@@ -156,7 +156,7 @@ fn main() {
                 };
                 egui_rpass.update_texture(&device, &queue, &platform.context().texture());
                 egui_rpass.update_user_textures(&device, &queue);
-                egui_rpass.update_buffers(&mut device, &mut queue, &paint_jobs, &screen_descriptor);
+                egui_rpass.update_buffers(&device, &queue, &paint_jobs, &screen_descriptor);
 
                 // Record all render passes.
                 egui_rpass.execute(
