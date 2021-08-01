@@ -1,4 +1,3 @@
-#![cfg_attr(not(debug_assertions), deny(warnings))] // Forbid warnings in release builds
 #![warn(clippy::all, rust_2018_idioms)]
 
 use chrono::Timelike;
@@ -11,6 +10,7 @@ use winit::event::Event::*;
 use winit::event_loop::ControlFlow;
 
 mod app;
+mod gpu;
 
 const INITIAL_WIDTH: u32 = 1920;
 const INITIAL_HEIGHT: u32 = 1080;
@@ -23,11 +23,11 @@ enum Event {
 
 /// This is the repaint signal type that egui needs for requesting a repaint from another thread.
 /// It sends the custom RequestRedraw event to the winit event loop.
-struct RepaintSignal(std::sync::Mutex<winit::event_loop::EventLoopProxy<Event>>);
+struct RepaintSignal;
 
 impl epi::RepaintSignal for RepaintSignal {
     fn request_repaint(&self) {
-        self.0.lock().unwrap().send_event(Event::RequestRedraw).ok();
+        // self.0.lock().unwrap().send_event(Event::RequestRedraw).ok();
     }
 }
 
@@ -84,10 +84,6 @@ fn main() {
     };
     let mut swap_chain = device.create_swap_chain(&surface, &sc_desc);
 
-    let repaint_signal = std::sync::Arc::new(RepaintSignal(std::sync::Mutex::new(
-        event_loop.create_proxy(),
-    )));
-
     // We use the egui_winit_platform crate as the platform.
     let mut platform = Platform::new(PlatformDescriptor {
         physical_width: size.width as u32,
@@ -134,7 +130,7 @@ fn main() {
                     },
                     tex_allocator: &mut egui_rpass,
                     output: &mut app_output,
-                    repaint_signal: repaint_signal.clone(),
+                    repaint_signal: std::sync::Arc::new(RepaintSignal),
                 }
                 .build();
 
