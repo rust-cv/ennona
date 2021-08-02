@@ -8,7 +8,7 @@ use egui_winit_platform::{Platform, PlatformDescriptor};
 use epi::App;
 use lazy_static::lazy_static;
 use nalgebra::{Matrix4, Point3, Vector3};
-use wgpu::{util::DeviceExt, CommandEncoder, SwapChainError, SwapChainTexture};
+use wgpu::{util::DeviceExt, Color, CommandEncoder, SwapChainError, SwapChainTexture};
 use winit::window::Window;
 
 use crate::{Application, Camera};
@@ -235,8 +235,8 @@ impl State {
                 label: Some("Render Encoder"),
             });
         self.platform.begin_frame();
-        self.render_points(&mut encoder, &frame);
         self.render_gui(scale_factor, &mut encoder, &frame);
+        self.render_points(&mut encoder, &frame);
 
         self.queue.submit(Some(encoder.finish()));
 
@@ -260,12 +260,7 @@ impl State {
                 view: &frame.view,
                 resolve_target: None,
                 ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(wgpu::Color {
-                        r: 0.0,
-                        g: 0.0,
-                        b: 0.0,
-                        a: 1.0,
-                    }),
+                    load: wgpu::LoadOp::Load,
                     store: true,
                 },
             }],
@@ -345,7 +340,7 @@ impl State {
             &output_frame.view,
             &paint_jobs,
             &screen_descriptor,
-            None,
+            Some(Color::BLACK),
         );
     }
 
