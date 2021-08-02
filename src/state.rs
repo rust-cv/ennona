@@ -87,11 +87,7 @@ impl State {
             .await
             .unwrap();
 
-        let egui_render_pass = RenderPass::new(
-            &device,
-            wgpu::TextureFormat::Bgra8UnormSrgb,
-            1,
-        );
+        let egui_render_pass = RenderPass::new(&device, wgpu::TextureFormat::Bgra8UnormSrgb, 1);
 
         let app = Application::default();
         let start_time = Instant::now();
@@ -366,7 +362,6 @@ impl State {
     }
 
     pub fn set_start_position(&mut self, target: Point3<f32>, distance: f32) {
-        
         let d = distance * 5.0;
         self.camera.eye = target - (d * Vector3::z());
         self.camera.target = target;

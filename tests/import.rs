@@ -1,4 +1,2 @@
 #[test]
-fn import_ply() {
-
-}
+fn import_ply() {}
