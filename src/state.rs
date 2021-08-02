@@ -1,3 +1,4 @@
+use std::time::Duration;
 use std::{borrow::Cow, time::Instant};
 
 use bytemuck::{Pod, Zeroable};
@@ -10,7 +11,8 @@ use lazy_static::lazy_static;
 use nalgebra::{IsometryMatrix3, Matrix4, Point3, Vector3};
 use wgpu::Color;
 use wgpu::{util::DeviceExt, CommandEncoder, SwapChainError, SwapChainTexture};
-use winit::{event::WindowEvent, window::Window};
+use winit::event::{DeviceEvent, ElementState, KeyboardInput};
+use winit::window::Window;
 
 use crate::{Application, Camera, CameraController};
 
@@ -49,7 +51,7 @@ pub struct State {
     vertex_buffer: wgpu::Buffer,
     num_points: u32,
     camera: Camera,
-    camera_controller: CameraController,
+    pub camera_controller: CameraController,
     uniforms: Uniforms,
     uniform_buffer: wgpu::Buffer,
     uniform_bind_group: wgpu::BindGroup,
@@ -91,7 +93,7 @@ impl State {
 
         let egui_render_pass = RenderPass::new(&device, wgpu::TextureFormat::Bgra8UnormSrgb, 1);
 
-        let app = Application::default();
+        let app = Application::new("".into(), 0., size.height, size.width);
         let start_time = Instant::now();
         let previous_frame_time = None;
         let sc_desc = wgpu::SwapChainDescriptor {
@@ -110,7 +112,7 @@ impl State {
             zfar: 100.,
         };
 
-        let camera_controller = CameraController::new(0.02);
+        let camera_controller = CameraController::new(0.02, 0.05);
 
         let mut uniforms = Uniforms::new();
         uniforms.update_view_proj(&camera);
@@ -222,11 +224,12 @@ impl State {
         self.size = new_size;
         self.sc_desc.width = new_size.width;
         self.sc_desc.height = new_size.height;
+        self.camera.aspect = new_size.width as f32 / new_size.height as f32;
         self.swap_chain = self.device.create_swap_chain(&self.surface, &self.sc_desc);
     }
 
-    pub fn update(&mut self) {
-        self.update_points();
+    pub fn update(&mut self, dt: Duration) {
+        self.update_points(dt);
         self.update_gui();
     }
 
@@ -246,9 +249,9 @@ impl State {
         Ok(())
     }
 
-    fn update_points(&mut self) {
+    fn update_points(&mut self, dt: Duration) {
         // TODO: update camera controller
-        self.camera_controller.update_camera(&mut self.camera);
+        self.camera_controller.update_camera(&mut self.camera, dt);
         self.uniforms.update_view_proj(&self.camera);
         self.queue.write_buffer(
             &self.uniform_buffer,
@@ -368,8 +371,32 @@ impl State {
             IsometryMatrix3::face_towards(&(target - (d * Vector3::z())), &target, &Vector3::y());
     }
 
-    pub fn input(&mut self, event: &WindowEvent<'_>) -> bool {
-        self.camera_controller.process_events(event)
+    pub fn input(&mut self, event: &DeviceEvent) -> bool {
+        match event {
+            DeviceEvent::Key(KeyboardInput {
+                virtual_keycode: Some(key),
+                state,
+                ..
+            }) => self.camera_controller.process_keyboard(key, *state),
+            DeviceEvent::MouseWheel { delta, .. } => {
+                self.camera_controller.process_scroll(delta);
+                true
+            }
+            DeviceEvent::Button {
+                button: 1, // Left Mouse Button
+                state,
+            } => {
+                self.camera_controller.mouse_captured = *state == ElementState::Pressed;
+                true
+            }
+            DeviceEvent::MouseMotion { delta } => {
+                if self.camera_controller.mouse_captured {
+                    self.camera_controller.process_mouse(delta.0, delta.1);
+                }
+                true
+            }
+            _ => false,
+        }
     }
 }
 

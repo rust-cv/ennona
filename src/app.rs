@@ -22,6 +22,17 @@ impl Default for Application {
     }
 }
 
+impl Application {
+    pub fn new(file_name: String, zoom: f32, window_height: u32, window_width: u32) -> Self {
+        Self {
+            file_name,
+            zoom,
+            window_height,
+            window_width,
+        }
+    }
+}
+
 impl epi::App for Application {
     fn name(&self) -> &str {
         "⛅ Cloud"

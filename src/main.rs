@@ -8,12 +8,13 @@ mod state;
 use app::Application;
 use camera::{Camera, CameraController};
 use chrono::Timelike;
+use egui_winit_platform::Platform;
 use eyre::Result;
 use futures_lite::future::block_on;
 use std::path::PathBuf;
 use structopt::StructOpt;
+use winit::event::Event;
 use winit::event::WindowEvent;
-use winit::event::{ElementState, Event, KeyboardInput, VirtualKeyCode};
 use winit::event_loop::ControlFlow;
 
 const INITIAL_WIDTH: u32 = 1920;
@@ -34,6 +35,10 @@ struct Opt {
 // When compiling natively:
 #[cfg(not(target_arch = "wasm32"))]
 fn main() -> Result<()> {
+    use std::time::Instant;
+
+    use log::info;
+
     let opt = Opt::from_args();
 
     pretty_env_logger::formatted_builder()
@@ -68,11 +73,19 @@ fn main() -> Result<()> {
 
     state.import_vertices(&points);
 
+    let mut last_render_time = Instant::now();
+
     event_loop.run(move |event: Event<'_, ()>, _, control_flow| {
         state.platform.handle_event(&event);
+        if captures_event(&state.platform, &event) {
+            info!("captured");
+        }
         match event {
             Event::RedrawRequested(_) => {
-                state.update();
+                let now = std::time::Instant::now();
+                let dt = now - last_render_time;
+                last_render_time = now;
+                state.update(dt);
 
                 match state.render(window.scale_factor()) {
                     Ok(_) => {}
@@ -87,34 +100,29 @@ fn main() -> Result<()> {
             Event::MainEventsCleared => {
                 window.request_redraw();
             }
+            Event::DeviceEvent {
+                ref event,
+                .. // We're not using device_id currently
+            } => {
+                state.input(event);
+            }
             Event::WindowEvent {
                 ref event,
                 window_id,
                 ..
             } if window_id == window.id() => {
-                if !state.input(event) {
-                    match event {
-                        WindowEvent::CloseRequested => {
-                            *control_flow = ControlFlow::Exit;
-                        }
-                        WindowEvent::Resized(size) => {
-                            state.resize(*size);
-                        }
-                        WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
-                            state.resize(**new_inner_size);
-                        }
-                        WindowEvent::KeyboardInput {
-                            input:
-                                KeyboardInput {
-                                    state: ElementState::Pressed,
-                                    virtual_keycode: Some(VirtualKeyCode::Escape),
-                                    ..
-                                },
-                            ..
-                        } => *control_flow = ControlFlow::Exit,
-
-                        _ => {}
+                match event {
+                    WindowEvent::CloseRequested => {
+                        *control_flow = ControlFlow::Exit;
                     }
+                    WindowEvent::Resized(size) => {
+                        state.resize(*size);
+                    }
+                    WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
+                        state.resize(**new_inner_size);
+                    }
+
+                    _ => {}
                 }
             }
             _ => (),
@@ -126,4 +134,27 @@ fn main() -> Result<()> {
 pub fn seconds_since_midnight() -> f64 {
     let time = chrono::Local::now().time();
     time.num_seconds_from_midnight() as f64 + 1e-9 * (time.nanosecond() as f64)
+}
+
+pub fn captures_event<T>(platform: &Platform, winit_event: &Event<'_, T>) -> bool {
+    match winit_event {
+        Event::WindowEvent {
+            window_id: _window_id,
+            event,
+        } => match event {
+            WindowEvent::ReceivedCharacter(_)
+            | WindowEvent::KeyboardInput { .. }
+            | WindowEvent::ModifiersChanged(_) => platform.context().wants_keyboard_input(),
+
+            WindowEvent::MouseWheel { .. } | WindowEvent::MouseInput { .. } => {
+                platform.context().wants_pointer_input()
+            }
+
+            WindowEvent::CursorMoved { .. } => platform.context().is_using_pointer(),
+
+            _ => false,
+        },
+
+        _ => false,
+    }
 }
