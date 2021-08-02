@@ -1,5 +1,5 @@
 [package]
-name = "cloud"
+name = "ennona"
 version = "0.1.0"
 authors = ["Andrew Franco <schweebledev@gmail.com>"]
 edition = "2018"
@@ -14,8 +14,14 @@ egui_winit_platform = "0.9.0"
 wgpu = "0.9.0"
 winit = "0.25.0"
 egui_demo_lib = "0.13.0"
-bytemuck = "1.7.2"
+bytemuck = {version = "1.7.2", features = ["derive"] }
 lazy_static = "1.4.0"
+nalgebra = "0.28.0"
+pretty_env_logger = "0.4.0"
+ply-rs = "0.1.3"
+structopt = "0.3.22"
+eyre = "0.6.5"
+log = "0.4.14"
 
 [profile.release]
 opt-level = 2 # fast and small wasm

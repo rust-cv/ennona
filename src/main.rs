@@ -1,42 +1,48 @@
 #![warn(clippy::all, rust_2018_idioms)]
 
-use chrono::Timelike;
-use egui::FontDefinitions;
-use egui_wgpu_backend::{RenderPass, ScreenDescriptor};
-use egui_winit_platform::{Platform, PlatformDescriptor};
-use epi::*;
-use futures_lite::future::block_on;
-use winit::event::Event::*;
-use winit::event_loop::ControlFlow;
-
 mod app;
-mod gpu;
+mod camera;
+mod import;
+mod state;
+
+use app::Application;
+use camera::Camera;
+use chrono::Timelike;
+use eyre::Result;
+use futures_lite::future::block_on;
+use std::path::PathBuf;
+use structopt::StructOpt;
+use winit::event::WindowEvent;
+use winit::event::{ElementState, Event, KeyboardInput, VirtualKeyCode};
+use winit::event_loop::ControlFlow;
 
 const INITIAL_WIDTH: u32 = 800;
 const INITIAL_HEIGHT: u32 = 600;
-const OUTPUT_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Bgra8UnormSrgb;
 
-/// A custom event type for the winit app.
-enum Event {
-    RequestRedraw,
-}
+#[derive(Debug, StructOpt)]
+#[structopt(name = "ennona", about = "Point cloud viewer for rust-cv")]
+struct Opt {
+    /// Input file (ply)
+    #[structopt(parse(from_os_str))]
+    input_file: PathBuf,
 
-/// This is the repaint signal type that egui needs for requesting a repaint from another thread.
-/// It sends the custom RequestRedraw event to the winit event loop.
-struct RepaintSignal;
-
-impl epi::RepaintSignal for RepaintSignal {
-    fn request_repaint(&self) {
-        // self.0.lock().unwrap().send_event(Event::RequestRedraw).ok();
-    }
+    /// Activate debug mode
+    #[structopt(short, long)]
+    debug: bool,
 }
 
 // When compiling natively:
 #[cfg(not(target_arch = "wasm32"))]
-fn main() {
-    use std::{iter, time::Instant};
+fn main() -> Result<()> {
+    let opt = Opt::from_args();
 
-    use crate::app::App;
+    pretty_env_logger::formatted_builder()
+        .filter_level(if opt.debug {
+            log::LevelFilter::Info
+        } else {
+            log::LevelFilter::Warn
+        })
+        .init();
 
     let event_loop = winit::event_loop::EventLoop::with_user_event();
     let window = winit::window::WindowBuilder::new()
@@ -48,141 +54,57 @@ fn main() {
             width: INITIAL_WIDTH,
             height: INITIAL_HEIGHT,
         })
-        .build(&event_loop)
-        .unwrap();
+        .build(&event_loop)?;
 
     window.set_window_icon(None);
 
-    let instance = wgpu::Instance::new(wgpu::BackendBit::PRIMARY);
-    let surface = unsafe { instance.create_surface(&window) };
+    let mut state = block_on(state::State::new(&window));
 
-    let adapter = block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
-        power_preference: wgpu::PowerPreference::HighPerformance,
-        compatible_surface: Some(&surface),
-    }))
-    .unwrap();
+    let points = import::import(opt.input_file)?;
+    let avg_pos = import::avg_vertex_position(&points);
+    let avg_dist = import::avg_vertex_distance(avg_pos, &points);
 
-    println!("Graphics Adapter: {}", adapter.get_info().name,);
+    state.set_start_position(avg_pos, avg_dist);
 
-    let (device, queue) = block_on(adapter.request_device(
-        &wgpu::DeviceDescriptor {
-            features: wgpu::Features::default(),
-            limits: wgpu::Limits::default(),
-            label: None,
-        },
-        None,
-    ))
-    .unwrap();
+    state.import_vertices(&points);
 
-    let size = window.inner_size();
-    let mut sc_desc = wgpu::SwapChainDescriptor {
-        usage: wgpu::TextureUsage::RENDER_ATTACHMENT,
-        format: OUTPUT_FORMAT,
-        width: size.width as u32,
-        height: size.height as u32,
-        present_mode: wgpu::PresentMode::Mailbox,
-    };
-    let mut swap_chain = device.create_swap_chain(&surface, &sc_desc);
-
-    // We use the egui_winit_platform crate as the platform.
-    let mut platform = Platform::new(PlatformDescriptor {
-        physical_width: size.width as u32,
-        physical_height: size.height as u32,
-        scale_factor: window.scale_factor(),
-        font_definitions: FontDefinitions::default(),
-        style: Default::default(),
-    });
-
-    // We use the egui_wgpu_backend crate as the render backend.
-    let mut egui_rpass = RenderPass::new(&device, OUTPUT_FORMAT, 1);
-
-    let mut app = App::default();
-
-    let start_time = Instant::now();
-    let mut previous_frame_time = None;
-
-    event_loop.run(move |event, _, control_flow| {
-        platform.handle_event(&event);
+    event_loop.run(move |event: Event<'_, ()>, _, control_flow| {
+        state.platform.handle_event(&event);
         match event {
-            RedrawRequested(..) => {
-                platform.update_time(start_time.elapsed().as_secs_f64());
+            Event::RedrawRequested(_) => {
+                state.update();
 
-                let output_frame = match swap_chain.get_current_frame() {
-                    Ok(frame) => frame,
-                    Err(e) => {
-                        eprintln!("Dropped frame with error: {}", e);
-                        return;
-                    }
-                };
+                state.render(window.scale_factor()).unwrap();
 
-                // Begin to draw the UI frame.
-                let egui_start = Instant::now();
-                platform.begin_frame();
-                let mut app_output = epi::backend::AppOutput::default();
-
-                let mut frame = epi::backend::FrameBuilder {
-                    info: epi::IntegrationInfo {
-                        web_info: None,
-                        cpu_usage: previous_frame_time,
-                        seconds_since_midnight: Some(seconds_since_midnight()),
-                        native_pixels_per_point: Some(window.scale_factor() as _),
-                        prefer_dark_mode: Some(true),
-                    },
-                    tex_allocator: &mut egui_rpass,
-                    output: &mut app_output,
-                    repaint_signal: std::sync::Arc::new(RepaintSignal),
-                }
-                .build();
-
-                // Draw the demo application.
-                app.update(&platform.context(), &mut frame);
-
-                // End the UI frame. We could now handle the output and draw the UI with the backend.
-                let (_output, paint_commands) = platform.end_frame();
-                let paint_jobs = platform.context().tessellate(paint_commands);
-
-                let frame_time = (Instant::now() - egui_start).as_secs_f64() as f32;
-                previous_frame_time = Some(frame_time);
-
-                let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                    label: Some("encoder"),
-                });
-
-                // Upload all resources for the GPU.
-                let screen_descriptor = ScreenDescriptor {
-                    physical_width: sc_desc.width,
-                    physical_height: sc_desc.height,
-                    scale_factor: window.scale_factor() as f32,
-                };
-                egui_rpass.update_texture(&device, &queue, &platform.context().texture());
-                egui_rpass.update_user_textures(&device, &queue);
-                egui_rpass.update_buffers(&device, &queue, &paint_jobs, &screen_descriptor);
-
-                // Record all render passes.
-                egui_rpass.execute(
-                    &mut encoder,
-                    &output_frame.output.view,
-                    &paint_jobs,
-                    &screen_descriptor,
-                    Some(wgpu::Color::BLACK),
-                );
-
-                // Submit the commands.
-                queue.submit(iter::once(encoder.finish()));
                 *control_flow = ControlFlow::Poll;
             }
-            MainEventsCleared | UserEvent(Event::RequestRedraw) => {
+            Event::MainEventsCleared => {
                 window.request_redraw();
             }
-            WindowEvent { event, .. } => match event {
-                winit::event::WindowEvent::Resized(size) => {
-                    sc_desc.width = size.width;
-                    sc_desc.height = size.height;
-                    swap_chain = device.create_swap_chain(&surface, &sc_desc);
-                }
-                winit::event::WindowEvent::CloseRequested => {
+            Event::WindowEvent {
+                ref event,
+                window_id,
+                ..
+            } if window_id == window.id() => match event {
+                WindowEvent::CloseRequested => {
                     *control_flow = ControlFlow::Exit;
                 }
+                WindowEvent::Resized(size) => {
+                    state.resize(*size);
+                }
+                WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
+                    state.resize(**new_inner_size);
+                }
+                WindowEvent::KeyboardInput {
+                    input:
+                        KeyboardInput {
+                            state: ElementState::Pressed,
+                            virtual_keycode: Some(VirtualKeyCode::Escape),
+                            ..
+                        },
+                    ..
+                } => *control_flow = ControlFlow::Exit,
+
                 _ => {}
             },
             _ => (),

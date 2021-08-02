@@ -2,7 +2,7 @@
 // #[cfg_attr(feature = "persistence", derive(serde::Deserialize, serde::Serialize))]
 // #[cfg_attr(feature = "persistence", serde(default))] // if we add new fields, give them default values when deserializing old state
 use egui::{containers::*, widgets::*, *};
-pub struct App {
+pub struct Application {
     // Example stuff:
     file_name: String,
     zoom: f32,
@@ -10,7 +10,7 @@ pub struct App {
     window_width: u32,
 }
 
-impl Default for App {
+impl Default for Application {
     fn default() -> Self {
         Self {
             // Example stuff:
@@ -22,7 +22,7 @@ impl Default for App {
     }
 }
 
-impl epi::App for App {
+impl epi::App for Application {
     fn name(&self) -> &str {
         "⛅ Cloud"
     }
@@ -53,7 +53,7 @@ impl epi::App for App {
     }
 }
 
-impl App {
+impl Application {
     pub fn ui(&mut self, ui: &mut Ui) {
         Frame::popup(ui.style())
             .stroke(Stroke::none())
