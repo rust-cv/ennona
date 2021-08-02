@@ -7,11 +7,11 @@ use egui_wgpu_backend::{RenderPass, ScreenDescriptor};
 use egui_winit_platform::{Platform, PlatformDescriptor};
 use epi::App;
 use lazy_static::lazy_static;
-use nalgebra::{Matrix4, Point3, Vector3};
+use nalgebra::{IsometryMatrix3, Matrix4, Point3, Vector3};
 use wgpu::{util::DeviceExt, CommandEncoder, SwapChainError, SwapChainTexture};
-use winit::window::Window;
+use winit::{event::WindowEvent, window::Window};
 
-use crate::{Application, Camera};
+use crate::{Application, Camera, CameraController};
 
 // main.rs
 #[repr(C)]
@@ -48,6 +48,7 @@ pub struct State {
     vertex_buffer: wgpu::Buffer,
     num_points: u32,
     camera: Camera,
+    camera_controller: CameraController,
     uniforms: Uniforms,
     uniform_buffer: wgpu::Buffer,
     uniform_bind_group: wgpu::BindGroup,
@@ -101,14 +102,14 @@ impl State {
         };
 
         let camera = Camera {
-            eye: [0., 1., 2.].into(),
-            target: [0., 0., 0.].into(),
-            up: Vector3::y(),
+            view_matrix: IsometryMatrix3::identity(),
             aspect: sc_desc.width as f32 / sc_desc.height as f32,
             fovy: 45.0,
             znear: 0.1,
             zfar: 100.,
         };
+
+        let camera_controller = CameraController::new(0.2);
 
         let mut uniforms = Uniforms::new();
         uniforms.update_view_proj(&camera);
@@ -203,6 +204,7 @@ impl State {
             vertex_buffer,
             num_points: 0,
             camera,
+            camera_controller,
             uniform_bind_group,
             uniform_buffer,
             uniforms,
@@ -245,6 +247,7 @@ impl State {
 
     fn update_points(&mut self) {
         // TODO: update camera controller
+        self.camera_controller.update_camera(&mut self.camera);
         self.uniforms.update_view_proj(&self.camera);
         self.queue.write_buffer(
             &self.uniform_buffer,
@@ -301,7 +304,7 @@ impl State {
                 cpu_usage: self.previous_frame_time,
                 seconds_since_midnight: Some(seconds_since_midnight()),
                 native_pixels_per_point: Some(scale_factor as _),
-                prefer_dark_mode: Some(true),
+                prefer_dark_mode: Some(false),
             },
             tex_allocator: &mut self.egui_render_pass,
             output: &mut app_output,
@@ -363,11 +366,13 @@ impl State {
 
     pub fn set_start_position(&mut self, target: Point3<f32>, distance: f32) {
         let d = distance * 5.0;
-        self.camera.eye = target - (d * Vector3::z());
-        self.camera.target = target;
         self.camera.zfar = 100. * d;
         self.camera.znear = d / 100.;
-        self.camera.up = Vector3::y();
+        self.camera.view_matrix = IsometryMatrix3::face_towards(&(target - (d * Vector3::z())), &target, &Vector3::y());
+    }
+
+    pub fn input(&mut self, event: &WindowEvent<'_>) -> bool {
+        self.camera_controller.process_events(event)
     }
 }
 

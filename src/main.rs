@@ -6,7 +6,7 @@ mod import;
 mod state;
 
 use app::Application;
-use camera::Camera;
+use camera::{Camera, CameraController};
 use chrono::Timelike;
 use eyre::Result;
 use futures_lite::future::block_on;
@@ -16,8 +16,8 @@ use winit::event::WindowEvent;
 use winit::event::{ElementState, Event, KeyboardInput, VirtualKeyCode};
 use winit::event_loop::ControlFlow;
 
-const INITIAL_WIDTH: u32 = 800;
-const INITIAL_HEIGHT: u32 = 600;
+const INITIAL_WIDTH: u32 = 1920;
+const INITIAL_HEIGHT: u32 = 1080;
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "ennona", about = "Point cloud viewer for rust-cv")]
@@ -74,9 +74,15 @@ fn main() -> Result<()> {
             Event::RedrawRequested(_) => {
                 state.update();
 
-                state.render(window.scale_factor()).unwrap();
-
-                *control_flow = ControlFlow::Poll;
+                match state.render(window.scale_factor()) {
+                    Ok(_) => {}
+                    // Recreate the swap_chain if lost
+                    Err(wgpu::SwapChainError::Lost) => state.resize(state.size),
+                    // The system is out of memory, we should probably quit
+                    Err(wgpu::SwapChainError::OutOfMemory) => *control_flow = ControlFlow::Exit,
+                    // All other errors (Outdated, Timeout) should be resolved by the next frame
+                    Err(e) => eprintln!("{:?}", e),
+                }
             }
             Event::MainEventsCleared => {
                 window.request_redraw();
@@ -85,28 +91,32 @@ fn main() -> Result<()> {
                 ref event,
                 window_id,
                 ..
-            } if window_id == window.id() => match event {
-                WindowEvent::CloseRequested => {
-                    *control_flow = ControlFlow::Exit;
-                }
-                WindowEvent::Resized(size) => {
-                    state.resize(*size);
-                }
-                WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
-                    state.resize(**new_inner_size);
-                }
-                WindowEvent::KeyboardInput {
-                    input:
-                        KeyboardInput {
-                            state: ElementState::Pressed,
-                            virtual_keycode: Some(VirtualKeyCode::Escape),
+            } if window_id == window.id() => {
+                if !state.input(event) {
+                    match event {
+                        WindowEvent::CloseRequested => {
+                            *control_flow = ControlFlow::Exit;
+                        }
+                        WindowEvent::Resized(size) => {
+                            state.resize(*size);
+                        }
+                        WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
+                            state.resize(**new_inner_size);
+                        }
+                        WindowEvent::KeyboardInput {
+                            input:
+                                KeyboardInput {
+                                    state: ElementState::Pressed,
+                                    virtual_keycode: Some(VirtualKeyCode::Escape),
+                                    ..
+                                },
                             ..
-                        },
-                    ..
-                } => *control_flow = ControlFlow::Exit,
+                        } => *control_flow = ControlFlow::Exit,
 
-                _ => {}
-            },
+                        _ => {}
+                    }
+                }
+            }
             _ => (),
         }
     });

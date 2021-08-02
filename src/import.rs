@@ -15,12 +15,9 @@ pub fn import(path: PathBuf) -> Result<Vec<Vertex>> {
     let mut vertex_list = Vec::new();
 
     for (_, element) in &header.elements {
-        match element.name.as_ref() {
-            "vertex" => {
-                vertex_list =
-                    vertex_parser.read_payload_for_element(&mut buf_read, &element, &header)?;
-            }
-            _ => {}
+        if element.name == "vertex" {
+            vertex_list =
+                vertex_parser.read_payload_for_element(&mut buf_read, element, &header)?;
         }
     }
 
@@ -49,7 +46,7 @@ impl ply::PropertyAccess for Vertex {
 }
 
 /// Calculates the average position of all vertices provided in the list
-pub fn avg_vertex_position(vertices: &Vec<Vertex>) -> Point3<f32> {
+pub fn avg_vertex_position(vertices: &[Vertex]) -> Point3<f32> {
     let mut center = Point3::<f64>::new(0.0, 0.0, 0.0);
     let length = vertices.len() as f64;
     for v in vertices {
@@ -62,12 +59,12 @@ pub fn avg_vertex_position(vertices: &Vec<Vertex>) -> Point3<f32> {
 }
 
 /// Calculates the average distance of all vertices to the average vertex position
-pub fn avg_vertex_distance(avg_vertex_position: Point3<f32>, vertices: &Vec<Vertex>) -> f32 {
+pub fn avg_vertex_distance(avg_vertex_position: Point3<f32>, vertices: &[Vertex]) -> f32 {
     let mut sum = 0.0;
     let length = vertices.len() as f32;
     for v in vertices {
         let pos = Point3::<f32>::from(v.position);
-        sum = sum + distance(&avg_vertex_position, &pos);
+        sum += distance(&avg_vertex_position, &pos);
     }
 
     sum / length
