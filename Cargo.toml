@@ -1,7 +1,7 @@
 [package]
 name = "ennona"
 version = "0.1.0"
-authors = ["Andrew Franco <schweebledev@gmail.com>"]
+authors = ["Andrew Franco <schweebledev@gmail.com>", "Geordon Worley <vadixidav@gmail.com>"]
 edition = "2018"
 
 [dependencies]
