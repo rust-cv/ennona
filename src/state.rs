@@ -8,9 +8,9 @@ use egui_winit_platform::{Platform, PlatformDescriptor};
 use epi::App;
 use lazy_static::lazy_static;
 use nalgebra::{IsometryMatrix3, Matrix4, Point3, Vector3};
+use wgpu::Color;
 use wgpu::{util::DeviceExt, CommandEncoder, SwapChainError, SwapChainTexture};
 use winit::{event::WindowEvent, window::Window};
-use wgpu::{Color};
 
 use crate::{Application, Camera, CameraController};
 
@@ -364,7 +364,8 @@ impl State {
         let d = distance * 5.0;
         self.camera.zfar = 100. * d;
         self.camera.znear = d / 100.;
-        self.camera.view_matrix = IsometryMatrix3::face_towards(&(target - (d * Vector3::z())), &target, &Vector3::y());
+        self.camera.view_matrix =
+            IsometryMatrix3::face_towards(&(target - (d * Vector3::z())), &target, &Vector3::y());
     }
 
     pub fn input(&mut self, event: &WindowEvent<'_>) -> bool {

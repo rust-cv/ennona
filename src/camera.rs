@@ -11,7 +11,8 @@ pub struct Camera {
 
 impl Camera {
     pub fn build_view_projection_matrix(&self) -> Matrix4<f32> {
-        let perspective = Matrix4::from_diagonal(&Vector4::new(-1., -1., 1., 1.)) * Matrix4::new_perspective(self.aspect, self.fovy, self.znear, self.zfar);
+        let perspective = Matrix4::from_diagonal(&Vector4::new(-1., -1., 1., 1.))
+            * Matrix4::new_perspective(self.aspect, self.fovy, self.znear, self.zfar);
 
         perspective * self.view_matrix.to_matrix()
     }
