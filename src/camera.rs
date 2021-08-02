@@ -62,6 +62,14 @@ impl CameraController {
         }
     }
 
+    pub fn set_speed(&mut self, new_speed: f32) {
+        self.speed = new_speed;
+    }
+
+    pub fn set_sensitivity(&mut self, new_sensitivity: f32) {
+        self.sensitivity = new_sensitivity;
+    }
+
     pub fn process_keyboard(&mut self, keycode: &VirtualKeyCode, state: ElementState) -> bool {
         let is_pressed = state == ElementState::Pressed;
         match keycode {

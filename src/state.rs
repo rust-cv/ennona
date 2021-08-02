@@ -392,6 +392,9 @@ impl State {
             DeviceEvent::MouseMotion { delta } => {
                 if self.camera_controller.mouse_captured {
                     self.camera_controller.process_mouse(delta.0, delta.1);
+                } else {
+                    self.camera_controller.rotate_horizontal = 0.;
+                    self.camera_controller.rotate_vertical = 0.;
                 }
                 true
             }
