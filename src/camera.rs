@@ -81,7 +81,7 @@ impl CameraController {
                 self.is_down_pressed = is_pressed;
                 true
             }
-            VirtualKeyCode::W | VirtualKeyCode::Up => {
+            VirtualKeyCode::W | VirtualKeyCode::Up | VirtualKeyCode::Comma => {
                 self.is_forward_pressed = is_pressed;
                 true
             }
@@ -89,20 +89,20 @@ impl CameraController {
                 self.is_left_pressed = is_pressed;
                 true
             }
-            VirtualKeyCode::S | VirtualKeyCode::Down => {
+            VirtualKeyCode::S | VirtualKeyCode::Down | VirtualKeyCode::O => {
                 self.is_backward_pressed = is_pressed;
                 true
             }
-            VirtualKeyCode::D | VirtualKeyCode::Right => {
+            VirtualKeyCode::D | VirtualKeyCode::Right | VirtualKeyCode::E => {
                 self.is_right_pressed = is_pressed;
                 true
             }
 
-            VirtualKeyCode::Q => {
+            VirtualKeyCode::R => {
                 self.is_counter_clock_pressed = is_pressed;
                 true
             }
-            VirtualKeyCode::E => {
+            VirtualKeyCode::T => {
                 self.is_clock_pressed = is_pressed;
                 true
             }
