@@ -1,4 +1,4 @@
-use nalgebra::{IsometryMatrix3, Matrix4, Point3, Rotation3, Vector3, Vector4};
+use nalgebra::{IsometryMatrix3, Matrix4, Rotation3, Vector3, Vector4};
 use winit::event::{ElementState, KeyboardInput, VirtualKeyCode, WindowEvent};
 
 pub struct Camera {
