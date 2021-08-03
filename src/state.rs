@@ -11,6 +11,7 @@ use lazy_static::lazy_static;
 use nalgebra::{IsometryMatrix3, Matrix4, Point3, Vector3};
 use wgpu::Color;
 use wgpu::{util::DeviceExt, CommandEncoder, SwapChainError, SwapChainTexture};
+use winit::dpi::PhysicalPosition;
 use winit::event::{DeviceEvent, ElementState, Event, KeyboardInput, WindowEvent};
 use winit::window::Window;
 
@@ -371,31 +372,9 @@ impl State {
             IsometryMatrix3::face_towards(&(target - (d * Vector3::z())), &target, &Vector3::y());
     }
 
-    pub fn input(&mut self, event: &Event<'_, ()>) -> bool {
+    pub fn input(&mut self, event: &Event<'_, ()>, window: &Window) -> bool {
         match event {
             // capture mouse-move and btn-release as `DeviceEvent`s so we can see them when the pointer leaves the screen
-            Event::DeviceEvent { event, .. } => {
-                match event {
-                    DeviceEvent::Button {
-                        button: 1, // Left Mouse Button
-                        state: ElementState::Released,
-                    } => {
-                        self.camera_controller.mouse_captured = false;
-                        self.camera_controller.process_mouse(0., 0.);
-                        true
-                    }
-                    DeviceEvent::MouseMotion { delta } => {
-                        if self.camera_controller.mouse_captured {
-                            self.camera_controller.process_mouse(delta.0, delta.1);
-                        } else {
-                            self.camera_controller.rotate_horizontal = 0.;
-                            self.camera_controller.rotate_vertical = 0.;
-                        }
-                        true
-                    }
-                    _ => false,
-                }
-            }
             Event::WindowEvent { event, .. } => match event {
                 WindowEvent::KeyboardInput {
                     input:
@@ -405,18 +384,37 @@ impl State {
                             ..
                         },
                     ..
-                } => self.camera_controller.process_keyboard(key, *state),
+                } => self.camera_controller.process_keyboard(key, *state, window),
                 WindowEvent::MouseWheel { delta, .. } => {
                     self.camera_controller.process_scroll(delta);
                     true
                 }
-                WindowEvent::MouseInput {
-                    button: winit::event::MouseButton::Left,
-                    state: ElementState::Pressed,
-                    ..
-                } => {
-                    self.camera_controller.mouse_captured = true;
-                    true
+                WindowEvent::CursorMoved {position, ..} => {
+                    let old_pos = match self.camera_controller.mouse_position.replace(*position) {
+                        Some(pos) => pos,
+                        None => return false,
+                    };
+                    let delta_x = position.x - old_pos.x;
+                    let delta_y = position.y - old_pos.y;
+                    if self.camera_controller.mouse_captured {
+                        let size = window.inner_size();
+                        let center = PhysicalPosition {
+                            x: size.width / 2,
+                            y: size.height / 2,
+                        };
+                        
+                        if window.set_cursor_position(center).is_ok() {
+                            self.camera_controller.mouse_position.replace(PhysicalPosition {
+                                x: center.x as f64,
+                                y: center.y as f64,
+                            });
+                        }
+                        self.camera_controller.process_mouse(delta_x, delta_y);
+                        true
+                    }
+                    else {
+                        false
+                    }
                 }
                 _ => false,
             },

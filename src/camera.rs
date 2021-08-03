@@ -4,6 +4,7 @@ use nalgebra::{IsometryMatrix3, Matrix4, Rotation3, Vector3, Vector4};
 use winit::{
     dpi::PhysicalPosition,
     event::{ElementState, MouseScrollDelta, VirtualKeyCode},
+    window::Window,
 };
 
 pub struct Camera {
@@ -37,6 +38,7 @@ pub struct CameraController {
     pub is_counter_clock_pressed: bool,
     pub is_clock_pressed: bool,
     pub mouse_captured: bool,
+    pub mouse_position: Option<PhysicalPosition<f64>>,
     pub rotate_horizontal: f32,
     pub rotate_vertical: f32,
     pub scroll: f32,
@@ -59,6 +61,7 @@ impl CameraController {
             rotate_horizontal: 0.0,
             rotate_vertical: 0.0,
             scroll: 0.0,
+            mouse_position: None,
         }
     }
 
@@ -72,7 +75,12 @@ impl CameraController {
         self.sensitivity = new_sensitivity;
     }
 
-    pub fn process_keyboard(&mut self, keycode: &VirtualKeyCode, state: ElementState) -> bool {
+    pub fn process_keyboard(
+        &mut self,
+        keycode: &VirtualKeyCode,
+        state: ElementState,
+        window: &Window,
+    ) -> bool {
         let is_pressed = state == ElementState::Pressed;
         match keycode {
             VirtualKeyCode::Space => {
@@ -106,6 +114,15 @@ impl CameraController {
             }
             VirtualKeyCode::T => {
                 self.is_clock_pressed = is_pressed;
+                true
+            }
+            VirtualKeyCode::Escape => {
+                if is_pressed {
+                    self.mouse_captured = !self.mouse_captured;
+                    let _ = window.set_cursor_grab(self.mouse_captured);
+                    window.set_cursor_visible(!self.mouse_captured);
+                }
+
                 true
             }
             _ => false,

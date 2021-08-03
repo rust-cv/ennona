@@ -97,7 +97,7 @@ fn main() -> Result<()> {
                 window.request_redraw();
             }
             Event::DeviceEvent { .. } => {
-                state.input(&event);
+                state.input(&event, &window);
             }
             Event::WindowEvent {
                 event: ref window_event,
@@ -119,7 +119,7 @@ fn main() -> Result<()> {
                 }
 
                 if !state.platform.captures_event(&event) {
-                    state.input(&event);
+                    state.input(&event, &window);
                 }
             }
             _ => (),
