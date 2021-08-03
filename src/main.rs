@@ -37,8 +37,6 @@ struct Opt {
 fn main() -> Result<()> {
     use std::time::Instant;
 
-    use log::info;
-
     let opt = Opt::from_args();
 
     pretty_env_logger::formatted_builder()
@@ -77,9 +75,7 @@ fn main() -> Result<()> {
 
     event_loop.run(move |event: Event<'_, ()>, _, control_flow| {
         state.platform.handle_event(&event);
-        if captures_event(&state.platform, &event) {
-            info!("captured");
-        }
+
         match event {
             Event::RedrawRequested(_) => {
                 let now = std::time::Instant::now();
@@ -100,18 +96,15 @@ fn main() -> Result<()> {
             Event::MainEventsCleared => {
                 window.request_redraw();
             }
-            Event::DeviceEvent {
-                ref event,
-                .. // We're not using device_id currently
-            } => {
-                state.input(event);
+            Event::DeviceEvent { .. } => {
+                state.input(&event);
             }
             Event::WindowEvent {
-                ref event,
+                event: ref window_event,
                 window_id,
                 ..
             } if window_id == window.id() => {
-                match event {
+                match window_event {
                     WindowEvent::CloseRequested => {
                         *control_flow = ControlFlow::Exit;
                     }
@@ -123,6 +116,10 @@ fn main() -> Result<()> {
                     }
 
                     _ => {}
+                }
+
+                if !state.platform.captures_event(&event) {
+                    state.input(&event);
                 }
             }
             _ => (),
