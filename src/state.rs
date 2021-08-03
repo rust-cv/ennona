@@ -94,7 +94,6 @@ impl State {
 
         let egui_render_pass = RenderPass::new(&device, wgpu::TextureFormat::Bgra8UnormSrgb, 1);
 
-        let app = Application::new("".into(), 0., size.height, size.width);
         let start_time = Instant::now();
         let previous_frame_time = None;
         let sc_desc = wgpu::SwapChainDescriptor {
@@ -114,6 +113,14 @@ impl State {
         };
 
         let camera_controller = CameraController::new(0.02, 1.0);
+
+        let app = Application::new(
+            "".into(),
+            camera_controller.speed,
+            camera_controller.sensitivity,
+            size.height,
+            size.width,
+        );
 
         let mut uniforms = Uniforms::new();
         uniforms.update_view_proj(&camera);
@@ -227,10 +234,12 @@ impl State {
         self.sc_desc.height = new_size.height;
         self.camera.aspect = new_size.width as f32 / new_size.height as f32;
         self.swap_chain = self.device.create_swap_chain(&self.surface, &self.sc_desc);
+        self.app.window_width = new_size.width;
+        self.app.window_height = new_size.height;
     }
 
     pub fn update(&mut self, dt: Duration) {
-        self.update_points(dt);
+        self.update_points(dt, self.app.speed, self.app.sensitivity);
         self.update_gui();
     }
 
@@ -250,9 +259,11 @@ impl State {
         Ok(())
     }
 
-    fn update_points(&mut self, dt: Duration) {
+    fn update_points(&mut self, dt: Duration, new_speed: f32, new_sensitivity: f32) {
         // TODO: update camera controller
         self.camera_controller.update_camera(&mut self.camera, dt);
+        self.camera_controller.set_speed(new_speed);
+        self.camera_controller.set_sensitivity(new_sensitivity);
         self.uniforms.update_view_proj(&self.camera);
         self.queue.write_buffer(
             &self.uniform_buffer,

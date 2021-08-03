@@ -199,12 +199,20 @@ impl CameraController {
         if self.is_clock_pressed {
             camera
                 .view_matrix
-                .append_rotation_mut(&Rotation3::from_euler_angles(0., 0., -self.speed * 0.05));
+                .append_rotation_mut(&Rotation3::from_euler_angles(
+                    0.,
+                    0.,
+                    self.sensitivity * 0.05,
+                ));
         }
         if self.is_counter_clock_pressed {
             camera
                 .view_matrix
-                .append_rotation_mut(&Rotation3::from_euler_angles(0., 0., self.speed * 0.05));
+                .append_rotation_mut(&Rotation3::from_euler_angles(
+                    0.,
+                    0.,
+                    -self.sensitivity * 0.05,
+                ));
         }
     }
 }
