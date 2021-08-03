@@ -37,8 +37,6 @@ struct Opt {
 fn main() -> Result<()> {
     use std::time::Instant;
 
-    use log::info;
-
     let opt = Opt::from_args();
 
     pretty_env_logger::formatted_builder()
