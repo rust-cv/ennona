@@ -4,10 +4,11 @@
 use egui::{containers::*, widgets::*, *};
 pub struct Application {
     // Example stuff:
-    file_name: String,
-    zoom: f32,
-    window_height: u32,
-    window_width: u32,
+    pub file_name: String,
+    pub speed: f32,
+    pub sensitivity: f32,
+    pub window_height: u32,
+    pub window_width: u32,
 }
 
 impl Default for Application {
@@ -15,7 +16,8 @@ impl Default for Application {
         Self {
             // Example stuff:
             file_name: "".to_owned(),
-            zoom: 0.0,
+            speed: 0.02,
+            sensitivity: 1.0,
             window_height: 600,
             window_width: 800,
         }
@@ -23,10 +25,17 @@ impl Default for Application {
 }
 
 impl Application {
-    pub fn new(file_name: String, zoom: f32, window_height: u32, window_width: u32) -> Self {
+    pub fn new(
+        file_name: String,
+        speed: f32,
+        sensitivity: f32,
+        window_height: u32,
+        window_width: u32,
+    ) -> Self {
         Self {
             file_name,
-            zoom,
+            speed,
+            sensitivity,
             window_height,
             window_width,
         }
@@ -35,7 +44,7 @@ impl Application {
 
 impl epi::App for Application {
     fn name(&self) -> &str {
-        "⛅ Cloud"
+        "⛅ Ennona"
     }
 
     /// Called by the framework to load old app state (if any).
@@ -77,7 +86,18 @@ impl Application {
         if ui.add(Button::new("File")).clicked() {
             // do nothing right now
         }
-        ui.add(Slider::new(&mut self.zoom, -100.0..=100.0).text("zoom"));
+        ui.add(
+            Slider::new(&mut self.speed, 0.0..=1.0)
+                .text("speed")
+                .clamp_to_range(true)
+                .logarithmic(true),
+        );
+        ui.add(
+            Slider::new(&mut self.sensitivity, 0.0..=5.0)
+                .text("sensitivity")
+                .clamp_to_range(true)
+                .logarithmic(true),
+        );
         ui.label(format!("Window width: {}", self.window_width));
         ui.label(format!("Window height: {}", self.window_height));
     }

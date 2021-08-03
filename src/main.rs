@@ -52,7 +52,7 @@ fn main() -> Result<()> {
         .with_decorations(true)
         .with_resizable(true)
         .with_transparent(false)
-        .with_title("⛅ Cloud")
+        .with_title("⛅ Ennona")
         .with_inner_size(winit::dpi::PhysicalSize {
             width: INITIAL_WIDTH,
             height: INITIAL_HEIGHT,
