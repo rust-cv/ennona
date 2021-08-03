@@ -62,10 +62,12 @@ impl CameraController {
         }
     }
 
+    #[allow(dead_code)]
     pub fn set_speed(&mut self, new_speed: f32) {
         self.speed = new_speed;
     }
 
+    #[allow(dead_code)]
     pub fn set_sensitivity(&mut self, new_sensitivity: f32) {
         self.sensitivity = new_sensitivity;
     }
