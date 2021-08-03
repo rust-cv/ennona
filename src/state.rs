@@ -12,7 +12,7 @@ use nalgebra::{IsometryMatrix3, Matrix4, Point3, Vector3};
 use wgpu::Color;
 use wgpu::{util::DeviceExt, CommandEncoder, SwapChainError, SwapChainTexture};
 use winit::dpi::PhysicalPosition;
-use winit::event::{DeviceEvent, ElementState, Event, KeyboardInput, WindowEvent};
+use winit::event::{Event, KeyboardInput, WindowEvent};
 use winit::window::Window;
 
 use crate::{Application, Camera, CameraController};
@@ -389,7 +389,7 @@ impl State {
                     self.camera_controller.process_scroll(delta);
                     true
                 }
-                WindowEvent::CursorMoved {position, ..} => {
+                WindowEvent::CursorMoved { position, .. } => {
                     let old_pos = match self.camera_controller.mouse_position.replace(*position) {
                         Some(pos) => pos,
                         None => return false,
@@ -402,17 +402,18 @@ impl State {
                             x: size.width / 2,
                             y: size.height / 2,
                         };
-                        
+
                         if window.set_cursor_position(center).is_ok() {
-                            self.camera_controller.mouse_position.replace(PhysicalPosition {
-                                x: center.x as f64,
-                                y: center.y as f64,
-                            });
+                            self.camera_controller
+                                .mouse_position
+                                .replace(PhysicalPosition {
+                                    x: center.x as f64,
+                                    y: center.y as f64,
+                                });
                         }
                         self.camera_controller.process_mouse(delta_x, delta_y);
                         true
-                    }
-                    else {
+                    } else {
                         false
                     }
                 }
