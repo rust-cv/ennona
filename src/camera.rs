@@ -134,15 +134,21 @@ impl CameraController {
             }
             VirtualKeyCode::Escape => {
                 if is_pressed {
-                    self.mouse_captured = !self.mouse_captured;
-                    let _ = window.set_cursor_grab(self.mouse_captured);
-                    window.set_cursor_visible(!self.mouse_captured);
+                    self.set_mouse_captured(!self.mouse_captured, window);
                 }
 
                 true
             }
             _ => false,
         }
+    }
+
+    pub fn set_mouse_captured(&mut self, is_captured: bool, window: &Window) {
+        self.mouse_captured = is_captured;
+        self.rotate_horizontal = 0.0;
+        self.rotate_vertical = 0.0;
+        let _ = window.set_cursor_grab(is_captured);
+        window.set_cursor_visible(!is_captured);
     }
 
     pub fn process_mouse(&mut self, mouse_dx: f64, mouse_dy: f64) {

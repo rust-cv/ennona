@@ -90,7 +90,8 @@ impl Interface {
                     state,
                     ..
                 } => {
-                    self.camera_controller.mouse_captured = state == &ElementState::Pressed;
+                    self.camera_controller
+                        .set_mouse_captured(state == &ElementState::Pressed, window);
                     true
                 }
                 WindowEvent::CursorMoved { position, .. } => {
