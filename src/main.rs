@@ -24,13 +24,13 @@ const INITIAL_HEIGHT: u32 = 1080;
 #[derive(Debug, StructOpt)]
 #[structopt(name = "ennona", about = "Point cloud viewer for rust-cv")]
 struct Opt {
-    /// Input file (ply)
-    #[structopt(parse(from_os_str))]
-    input_file: PathBuf,
-
     /// Activate debug mode
     #[structopt(short, long)]
     debug: bool,
+
+    /// Input file (ply)
+    #[structopt(parse(from_os_str))]
+    input_file: Option<PathBuf>,
 }
 
 // When compiling natively:
@@ -70,13 +70,15 @@ fn main() -> Result<()> {
         window.inner_size().width,
     );
 
-    let points = import::import(opt.input_file)?;
-    let avg_pos = import::avg_vertex_position(&points);
-    let avg_dist = import::avg_vertex_distance(avg_pos, &points);
+    if let Some(f) = opt.input_file {
+        let points = import::import(&f)?;
+        let avg_pos = import::avg_vertex_position(&points);
+        let avg_dist = import::avg_vertex_distance(avg_pos, &points);
 
-    camera.set_camera_facing(avg_pos, avg_dist * 5.0);
+        camera.set_camera_facing(avg_pos, avg_dist * 5.0);
 
-    state.import_vertices(&points);
+        state.import_vertices(&points);
+    }
 
     let mut last_render_time = Instant::now();
 
@@ -95,14 +97,20 @@ fn main() -> Result<()> {
                     Ok(_) => {}
                     // Recreate the swap_chain if lost
                     Err(wgpu::SwapChainError::Lost) => {
-                        app.resize(state.size);
-                        camera.resize(state.size);
-                        state.rebuild_swapchain(state.size);
+                        app.resize(window.inner_size());
+                        camera.resize(window.inner_size());
+                        state.rebuild_swapchain(window.inner_size());
                     }
                     // The system is out of memory, we should probably quit
                     Err(wgpu::SwapChainError::OutOfMemory) => *control_flow = ControlFlow::Exit,
+
+                    Err(wgpu::SwapChainError::Outdated) => {
+                        app.resize(window.inner_size());
+                        camera.resize(window.inner_size());
+                        state.rebuild_swapchain(window.inner_size());
+                    }
                     // All other errors (Outdated, Timeout) should be resolved by the next frame
-                    Err(e) => eprintln!("{:?}", e),
+                    Err(e) => eprintln!("107 {:?}", e),
                 }
             }
             Event::MainEventsCleared => {
@@ -120,17 +128,29 @@ fn main() -> Result<()> {
                     WindowEvent::CloseRequested => {
                         *control_flow = ControlFlow::Exit;
                     }
-                    WindowEvent::Resized(size) => {
-                        app.resize(*size);
-                        camera.resize(*size);
-                        state.rebuild_swapchain(*size);
+                    WindowEvent::Resized(_) => {
+                        app.resize(window.inner_size());
+                        camera.resize(window.inner_size());
+                        state.rebuild_swapchain(window.inner_size());
                     }
-                    WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
-                        app.resize(**new_inner_size);
-                        camera.resize(**new_inner_size);
-                        state.rebuild_swapchain(**new_inner_size);
+                    WindowEvent::ScaleFactorChanged { .. } => {
+                        app.resize(window.inner_size());
+                        camera.resize(window.inner_size());
+                        state.rebuild_swapchain(window.inner_size());
                     }
+                    WindowEvent::DroppedFile(path) => {
+                        match import::import(path) {
+                            Ok(points) => {
+                                let avg_pos = import::avg_vertex_position(&points);
+                                let avg_dist = import::avg_vertex_distance(avg_pos, &points);
 
+                                camera.set_camera_facing(avg_pos, avg_dist * 5.0);
+
+                                state.import_vertices(&points);
+                            }
+                            Err(e) => eprintln!("145 {:?}", e),
+                        };
+                    }
                     _ => {}
                 }
 

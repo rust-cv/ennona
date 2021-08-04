@@ -1,11 +1,11 @@
 use eyre::Result;
-use std::path::PathBuf;
+use std::path::Path;
 
 use crate::state::Vertex;
 use nalgebra::{distance, Point3, Vector3};
 use ply_rs::{parser::Parser, ply};
 
-pub fn import(path: PathBuf) -> Result<Vec<Vertex>> {
+pub fn import(path: &Path) -> Result<Vec<Vertex>> {
     let f = std::fs::File::open(path).unwrap();
     let mut buf_read = std::io::BufReader::new(f);
     let vertex_parser = Parser::<Vertex>::new();
