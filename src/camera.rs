@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use nalgebra::{IsometryMatrix3, Matrix4, Rotation3, Vector3, Vector4};
+use nalgebra::{IsometryMatrix3, Matrix4, Point3, Rotation3, Vector3, Vector4};
 use winit::{
     dpi::PhysicalPosition,
     event::{ElementState, MouseScrollDelta, VirtualKeyCode},
@@ -23,6 +23,22 @@ impl Camera {
             * Matrix4::new_perspective(self.aspect, self.fovy, self.znear, self.zfar);
 
         perspective * self.view_matrix.to_matrix()
+    }
+
+    pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
+        self.aspect = new_size.width as f32 / new_size.height as f32;
+    }
+
+    /// Sets the camera to be facing `target` while also changing the near and far clip planes
+    /// based on the set distance.
+    pub fn set_camera_facing(&mut self, target: Point3<f32>, distance: f32) {
+        self.zfar = 100. * distance;
+        self.znear = distance / 100.;
+        self.view_matrix = IsometryMatrix3::face_towards(
+            &(target - (distance * Vector3::z())),
+            &target,
+            &Vector3::y(),
+        );
     }
 }
 

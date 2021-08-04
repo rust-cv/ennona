@@ -1,21 +1,22 @@
 #![warn(clippy::all, rust_2018_idioms)]
 
-mod app;
 mod camera;
 mod import;
+mod interface;
 mod state;
 
-use app::Application;
 use camera::{Camera, CameraController};
 use chrono::Timelike;
 use egui_winit_platform::Platform;
 use eyre::Result;
 use futures_lite::future::block_on;
+use interface::Interface;
 use std::path::PathBuf;
 use structopt::StructOpt;
-use winit::event::Event;
-use winit::event::WindowEvent;
-use winit::event_loop::ControlFlow;
+use winit::{
+    event::{Event, WindowEvent},
+    event_loop::ControlFlow,
+};
 
 const INITIAL_WIDTH: u32 = 1920;
 const INITIAL_HEIGHT: u32 = 1080;
@@ -62,12 +63,18 @@ fn main() -> Result<()> {
     window.set_window_icon(None);
 
     let mut state = block_on(state::State::new(&window));
+    let mut camera = state.create_initial_camera();
+    let mut app = Interface::new(
+        "".into(),
+        window.inner_size().height,
+        window.inner_size().width,
+    );
 
     let points = import::import(opt.input_file)?;
     let avg_pos = import::avg_vertex_position(&points);
     let avg_dist = import::avg_vertex_distance(avg_pos, &points);
 
-    state.set_start_position(avg_pos, avg_dist);
+    camera.set_camera_facing(avg_pos, avg_dist * 5.0);
 
     state.import_vertices(&points);
 
@@ -81,12 +88,17 @@ fn main() -> Result<()> {
                 let now = std::time::Instant::now();
                 let dt = now - last_render_time;
                 last_render_time = now;
-                state.update(dt);
+                app.update_camera(&mut camera, dt);
+                state.update(&camera);
 
-                match state.render(window.scale_factor()) {
+                match state.render(&mut app, window.scale_factor()) {
                     Ok(_) => {}
                     // Recreate the swap_chain if lost
-                    Err(wgpu::SwapChainError::Lost) => state.resize(state.size),
+                    Err(wgpu::SwapChainError::Lost) => {
+                        app.resize(state.size);
+                        camera.resize(state.size);
+                        state.rebuild_swapchain(state.size);
+                    }
                     // The system is out of memory, we should probably quit
                     Err(wgpu::SwapChainError::OutOfMemory) => *control_flow = ControlFlow::Exit,
                     // All other errors (Outdated, Timeout) should be resolved by the next frame
@@ -97,7 +109,7 @@ fn main() -> Result<()> {
                 window.request_redraw();
             }
             Event::DeviceEvent { .. } => {
-                state.input(&event, &window);
+                app.input(&event, &window);
             }
             Event::WindowEvent {
                 event: ref window_event,
@@ -109,17 +121,21 @@ fn main() -> Result<()> {
                         *control_flow = ControlFlow::Exit;
                     }
                     WindowEvent::Resized(size) => {
-                        state.resize(*size);
+                        app.resize(*size);
+                        camera.resize(*size);
+                        state.rebuild_swapchain(*size);
                     }
                     WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
-                        state.resize(**new_inner_size);
+                        app.resize(**new_inner_size);
+                        camera.resize(**new_inner_size);
+                        state.rebuild_swapchain(**new_inner_size);
                     }
 
                     _ => {}
                 }
 
                 if !state.platform.captures_event(&event) {
-                    state.input(&event, &window);
+                    app.input(&event, &window);
                 }
             }
             _ => (),

@@ -1,5 +1,4 @@
-use std::time::Duration;
-use std::{borrow::Cow, time::Instant};
+use std::time::Instant;
 
 use bytemuck::{Pod, Zeroable};
 use chrono::Timelike;
@@ -8,14 +7,11 @@ use egui_wgpu_backend::{RenderPass, ScreenDescriptor};
 use egui_winit_platform::{Platform, PlatformDescriptor};
 use epi::App;
 use lazy_static::lazy_static;
-use nalgebra::{IsometryMatrix3, Matrix4, Point3, Vector3};
-use wgpu::Color;
-use wgpu::{util::DeviceExt, CommandEncoder, SwapChainError, SwapChainTexture};
-use winit::dpi::PhysicalPosition;
-use winit::event::{Event, KeyboardInput, WindowEvent};
+use nalgebra::{IsometryMatrix3, Matrix4};
+use wgpu::{util::DeviceExt, Color, CommandEncoder, SwapChainError, SwapChainTexture};
 use winit::window::Window;
 
-use crate::{Application, Camera, CameraController};
+use crate::{Camera, Interface};
 
 // main.rs
 #[repr(C)]
@@ -51,14 +47,11 @@ pub struct State {
     point_pipeline: wgpu::RenderPipeline,
     vertex_buffer: wgpu::Buffer,
     num_points: u32,
-    camera: Camera,
-    pub camera_controller: CameraController,
     uniforms: Uniforms,
     uniform_buffer: wgpu::Buffer,
     uniform_bind_group: wgpu::BindGroup,
     pub platform: Platform,
     egui_render_pass: RenderPass,
-    app: Application,
     start_time: Instant,
     previous_frame_time: Option<f32>,
     pub size: winit::dpi::PhysicalSize<u32>,
@@ -104,30 +97,11 @@ impl State {
             present_mode: wgpu::PresentMode::Mailbox,
         };
 
-        let camera = Camera {
-            view_matrix: IsometryMatrix3::identity(),
-            aspect: sc_desc.width as f32 / sc_desc.height as f32,
-            fovy: 45.0,
-            znear: 0.1,
-            zfar: 100.,
-        };
-
-        let camera_controller = CameraController::new(0.02, 1.0);
-
-        let app = Application::new(
-            "".into(),
-            camera_controller.speed,
-            camera_controller.sensitivity,
-            size.height,
-            size.width,
-        );
-
-        let mut uniforms = Uniforms::new();
-        uniforms.update_view_proj(&camera);
+        let uniforms = Uniforms::new();
 
         let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Uniform Buffer"),
-            contents: bytemuck::cast_slice(&[uniforms]),
+            contents: bytemuck::cast_slice(&[Uniforms::new()]),
             usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
         });
 
@@ -158,7 +132,7 @@ impl State {
         let swap_chain = device.create_swap_chain(&surface, &sc_desc);
         let point_shader = device.create_shader_module(&wgpu::ShaderModuleDescriptor {
             label: Some("point shader"),
-            source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("shaders/shader.wgsl"))),
+            source: wgpu::ShaderSource::Wgsl(include_str!("shader.wgsl").into()),
             flags: wgpu::ShaderFlags::VALIDATION | wgpu::ShaderFlags::EXPERIMENTAL_TRANSLATION,
         });
         let render_pipeline_layout =
@@ -214,13 +188,10 @@ impl State {
             point_pipeline,
             vertex_buffer,
             num_points: 0,
-            camera,
-            camera_controller,
             uniform_bind_group,
             uniform_buffer,
             uniforms,
             platform,
-            app,
             egui_render_pass,
             start_time,
             previous_frame_time,
@@ -228,22 +199,29 @@ impl State {
         }
     }
 
-    pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
+    /// Updates the size of the display and rebuilds the swapchain.
+    pub fn rebuild_swapchain(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
         self.size = new_size;
         self.sc_desc.width = new_size.width;
         self.sc_desc.height = new_size.height;
-        self.camera.aspect = new_size.width as f32 / new_size.height as f32;
         self.swap_chain = self.device.create_swap_chain(&self.surface, &self.sc_desc);
-        self.app.window_width = new_size.width;
-        self.app.window_height = new_size.height;
     }
 
-    pub fn update(&mut self, dt: Duration) {
-        self.update_points(dt, self.app.speed, self.app.sensitivity);
+    pub fn update(&mut self, camera: &Camera) {
+        self.update_view_proj(camera);
         self.update_gui();
     }
 
-    pub fn render(&mut self, scale_factor: f64) -> Result<(), SwapChainError> {
+    pub fn update_view_proj(&mut self, camera: &Camera) {
+        self.uniforms.view_proj = camera.build_view_projection_matrix().into();
+        self.queue.write_buffer(
+            &self.uniform_buffer,
+            0,
+            bytemuck::cast_slice(&[self.uniforms]),
+        );
+    }
+
+    pub fn render(&mut self, app: &mut Interface, scale_factor: f64) -> Result<(), SwapChainError> {
         let frame = self.swap_chain.get_current_frame()?.output;
         let mut encoder = self
             .device
@@ -251,7 +229,7 @@ impl State {
                 label: Some("Render Encoder"),
             });
         self.platform.begin_frame();
-        self.render_gui(scale_factor, &mut encoder, &frame);
+        self.render_gui(app, scale_factor, &mut encoder, &frame);
         self.render_points(&mut encoder, &frame);
 
         self.queue.submit(Some(encoder.finish()));
@@ -259,17 +237,14 @@ impl State {
         Ok(())
     }
 
-    fn update_points(&mut self, dt: Duration, new_speed: f32, new_sensitivity: f32) {
-        // TODO: update camera controller
-        self.camera_controller.update_camera(&mut self.camera, dt);
-        self.camera_controller.set_speed(new_speed);
-        self.camera_controller.set_sensitivity(new_sensitivity);
-        self.uniforms.update_view_proj(&self.camera);
-        self.queue.write_buffer(
-            &self.uniform_buffer,
-            0,
-            bytemuck::cast_slice(&[self.uniforms]),
-        );
+    pub fn create_initial_camera(&self) -> Camera {
+        Camera {
+            view_matrix: IsometryMatrix3::identity(),
+            aspect: self.sc_desc.width as f32 / self.sc_desc.height as f32,
+            fovy: 45.0,
+            znear: 0.1,
+            zfar: 100.,
+        }
     }
 
     fn render_points(&mut self, encoder: &mut CommandEncoder, frame: &SwapChainTexture) {
@@ -300,6 +275,7 @@ impl State {
 
     fn render_gui(
         &mut self,
+        app: &mut Interface,
         scale_factor: f64,
         encoder: &mut CommandEncoder,
         output_frame: &SwapChainTexture,
@@ -324,7 +300,7 @@ impl State {
         .build();
 
         // Draw the demo application.
-        self.app.update(&self.platform.context(), &mut frame);
+        app.update(&self.platform.context(), &mut frame);
 
         // End the UI frame. We could now handle the output and draw the UI with the backend.
         let (_output, paint_commands) = self.platform.end_frame();
@@ -374,65 +350,6 @@ impl State {
 
         self.num_points = points.len() as u32;
     }
-
-    pub fn set_start_position(&mut self, target: Point3<f32>, distance: f32) {
-        let d = distance * 5.0;
-        self.camera.zfar = 100. * d;
-        self.camera.znear = d / 100.;
-        self.camera.view_matrix =
-            IsometryMatrix3::face_towards(&(target - (d * Vector3::z())), &target, &Vector3::y());
-    }
-
-    pub fn input(&mut self, event: &Event<'_, ()>, window: &Window) -> bool {
-        match event {
-            // capture mouse-move and btn-release as `DeviceEvent`s so we can see them when the pointer leaves the screen
-            Event::WindowEvent { event, .. } => match event {
-                WindowEvent::KeyboardInput {
-                    input:
-                        KeyboardInput {
-                            virtual_keycode: Some(key),
-                            state,
-                            ..
-                        },
-                    ..
-                } => self.camera_controller.process_keyboard(key, *state, window),
-                WindowEvent::MouseWheel { delta, .. } => {
-                    self.camera_controller.process_scroll(delta);
-                    true
-                }
-                WindowEvent::CursorMoved { position, .. } => {
-                    let old_pos = match self.camera_controller.mouse_position.replace(*position) {
-                        Some(pos) => pos,
-                        None => return false,
-                    };
-                    let delta_x = position.x - old_pos.x;
-                    let delta_y = position.y - old_pos.y;
-                    if self.camera_controller.mouse_captured {
-                        let size = window.inner_size();
-                        let center = PhysicalPosition {
-                            x: size.width / 2,
-                            y: size.height / 2,
-                        };
-
-                        if window.set_cursor_position(center).is_ok() {
-                            self.camera_controller
-                                .mouse_position
-                                .replace(PhysicalPosition {
-                                    x: center.x as f64,
-                                    y: center.y as f64,
-                                });
-                        }
-                        self.camera_controller.process_mouse(delta_x, delta_y);
-                        true
-                    } else {
-                        false
-                    }
-                }
-                _ => false,
-            },
-            _ => false,
-        }
-    }
 }
 
 /// Time of day as seconds since midnight.
@@ -462,9 +379,5 @@ impl Uniforms {
         Self {
             view_proj: Matrix4::identity().into(),
         }
-    }
-
-    pub fn update_view_proj(&mut self, camera: &Camera) {
-        self.view_proj = camera.build_view_projection_matrix().into();
     }
 }
