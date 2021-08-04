@@ -2,7 +2,6 @@ use eyre::{eyre, Result};
 use std::path::Path;
 
 use crate::state::Vertex;
-use image;
 use nalgebra::{distance, Point3, Vector3};
 use ply_rs::{parser::Parser, ply};
 
