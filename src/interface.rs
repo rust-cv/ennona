@@ -3,7 +3,7 @@ use std::time::Duration;
 use egui::{Button, CollapsingHeader, Frame, Slider, Stroke, Ui};
 use winit::{
     dpi::PhysicalPosition,
-    event::{Event, KeyboardInput, WindowEvent},
+    event::{ElementState, Event, KeyboardInput, WindowEvent},
     window::Window,
 };
 
@@ -71,7 +71,6 @@ impl Interface {
 
     pub fn input(&mut self, event: &Event<'_, ()>, window: &Window) -> bool {
         match event {
-            // capture mouse-move and btn-release as `DeviceEvent`s so we can see them when the pointer leaves the screen
             Event::WindowEvent { event, .. } => match event {
                 WindowEvent::KeyboardInput {
                     input:
@@ -84,6 +83,14 @@ impl Interface {
                 } => self.camera_controller.process_keyboard(key, *state, window),
                 WindowEvent::MouseWheel { delta, .. } => {
                     self.camera_controller.process_scroll(delta);
+                    true
+                }
+                WindowEvent::MouseInput {
+                    button: winit::event::MouseButton::Left,
+                    state,
+                    ..
+                } => {
+                    self.camera_controller.mouse_captured = state == &ElementState::Pressed;
                     true
                 }
                 WindowEvent::CursorMoved { position, .. } => {

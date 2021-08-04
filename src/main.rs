@@ -116,9 +116,6 @@ fn main() -> Result<()> {
             Event::MainEventsCleared => {
                 window.request_redraw();
             }
-            Event::DeviceEvent { .. } => {
-                app.input(&event, &window);
-            }
             Event::WindowEvent {
                 event: ref window_event,
                 window_id,
