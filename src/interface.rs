@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use egui::{Button, CollapsingHeader, Frame, Slider, Stroke, Ui};
+use egui::{Button, CollapsingHeader, Frame, Slider, Stroke, TextureId, Ui};
 use winit::{
     dpi::PhysicalPosition,
     event::{Event, KeyboardInput, WindowEvent},
@@ -12,12 +12,19 @@ use winit::{
 // #[cfg_attr(feature = "persistence", serde(default))] // if we add new fields, give them default values when deserializing old state
 use crate::{camera::Camera, CameraController};
 
+pub struct ImageTextureId {
+    pub texture_id: TextureId,
+    pub size: egui::Vec2,
+}
+
 pub struct Interface {
     // Example stuff:
     pub file_name: String,
     pub window_width: u32,
     pub window_height: u32,
     pub camera_controller: CameraController,
+    pub images: Vec<ImageTextureId>,
+    pub displayed_image_idx: u32,
 }
 
 impl Interface {
@@ -27,6 +34,8 @@ impl Interface {
             window_width,
             window_height,
             camera_controller: CameraController::new(0.02, 1.0),
+            images: Vec::new(),
+            displayed_image_idx: 0,
         }
     }
 
@@ -37,6 +46,13 @@ impl Interface {
 
     pub fn update_camera(&self, camera: &mut Camera, dt: Duration) {
         self.camera_controller.update_camera(camera, dt);
+    }
+
+    pub fn add_image(&mut self, texture_id: TextureId, size: (f32, f32)) {
+        self.images.push(ImageTextureId {
+            texture_id,
+            size: size.into(),
+        });
     }
 
     pub fn ui(&mut self, ui: &mut Ui) {
@@ -67,6 +83,23 @@ impl Interface {
         );
         ui.label(format!("Window width: {}", self.window_width));
         ui.label(format!("Window height: {}", self.window_height));
+
+        if self.images.len() > 1 {
+            ui.add(
+                Slider::new(
+                    &mut self.displayed_image_idx,
+                    0..=self.images.len() as u32 - 1,
+                )
+                .text("image")
+                .clamp_to_range(true)
+                .prefix("#"),
+            );
+        }
+        if let Some(img) = self.images.get(self.displayed_image_idx as usize) {
+            let width = 360f32;
+            let height = img.size.y * (width / img.size.x);
+            ui.image(img.texture_id, (width, height));
+        }
     }
 
     pub fn input(&mut self, event: &Event<'_, ()>, window: &Window) -> bool {

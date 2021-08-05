@@ -1,27 +1,51 @@
-use eyre::Result;
+use eyre::{eyre, Result};
 use std::path::Path;
 
 use crate::state::Vertex;
 use nalgebra::{distance, Point3, Vector3};
 use ply_rs::{parser::Parser, ply};
 
-pub fn import(path: &Path) -> Result<Vec<Vertex>> {
+pub enum Import {
+    Ply(Vec<Vertex>),
+    Image(image::DynamicImage),
+}
+
+pub fn import(path: &Path) -> Result<Import> {
     let f = std::fs::File::open(path).unwrap();
     let mut buf_read = std::io::BufReader::new(f);
-    let vertex_parser = Parser::<Vertex>::new();
+    let extension = path
+        .extension()
+        .and_then(std::ffi::OsStr::to_str)
+        .unwrap_or("no_extension");
 
-    let header = vertex_parser.read_header(&mut buf_read)?;
+    match extension {
+        "ply" => {
+            let vertex_parser = Parser::<Vertex>::new();
+            let header = vertex_parser.read_header(&mut buf_read)?;
 
-    let mut vertex_list = Vec::new();
+            let mut vertex_list = Vec::new();
 
-    for (_, element) in &header.elements {
-        if element.name == "vertex" {
-            vertex_list =
-                vertex_parser.read_payload_for_element(&mut buf_read, element, &header)?;
+            for (_, element) in &header.elements {
+                if element.name == "vertex" {
+                    vertex_list =
+                        vertex_parser.read_payload_for_element(&mut buf_read, element, &header)?;
+                }
+            }
+            Ok(Import::Ply(vertex_list))
         }
+        "png" | "jpg" | "jpeg" => {
+            // let img = image::load_from_memory(buf_read)?;
+            let img = image::io::Reader::new(buf_read)
+                .with_guessed_format()?
+                .decode()?;
+            Ok(Import::Image(img))
+        }
+        _ => Err(eyre!(
+            "Unknown file extension '{}' in file: '{:?}'",
+            extension,
+            path
+        )),
     }
-
-    Ok(vertex_list)
 }
 
 impl ply::PropertyAccess for Vertex {

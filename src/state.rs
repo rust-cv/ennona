@@ -5,7 +5,8 @@ use chrono::Timelike;
 use egui::FontDefinitions;
 use egui_wgpu_backend::{RenderPass, ScreenDescriptor};
 use egui_winit_platform::{Platform, PlatformDescriptor};
-use epi::App;
+use epi::{App, TextureAllocator};
+use image::{DynamicImage, GenericImageView};
 use lazy_static::lazy_static;
 use nalgebra::{IsometryMatrix3, Matrix4};
 use wgpu::{util::DeviceExt, Color, CommandEncoder, SwapChainError, SwapChainTexture};
@@ -284,7 +285,6 @@ impl State {
         let egui_start = Instant::now();
 
         let mut app_output = epi::backend::AppOutput::default();
-
         let mut frame = epi::backend::FrameBuilder {
             info: epi::IntegrationInfo {
                 web_info: None,
@@ -349,6 +349,21 @@ impl State {
             });
 
         self.num_points = points.len() as u32;
+    }
+
+    pub fn import_image(&mut self, img: DynamicImage, interface: &mut Interface) {
+        let width = img.width();
+        let height = img.height();
+        let buff = img.to_rgba8().to_vec();
+        // Note: egui_wgpu will convert the image back to Vec<u8> in RenderPass::alloc_srgba_premultiplied so this step can  be skipped
+        let srgba_pixels: Vec<egui::Color32> = buff
+            .chunks(4)
+            .map(|p| egui::Color32::from_rgba_unmultiplied(p[0], p[1], p[2], p[3]))
+            .collect();
+        let texture_id = self
+            .egui_render_pass
+            .alloc_srgba_premultiplied((width as usize, height as usize), &srgba_pixels[..]);
+        interface.add_image(texture_id, (width as f32, height as f32));
     }
 }
 

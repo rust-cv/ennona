@@ -72,12 +72,16 @@ fn main() -> Result<()> {
 
     if let Some(f) = opt.input_file {
         let points = import::import(&f)?;
-        let avg_pos = import::avg_vertex_position(&points);
-        let avg_dist = import::avg_vertex_distance(avg_pos, &points);
+        if let import::Import::Ply(points) = points {
+            let avg_pos = import::avg_vertex_position(&points);
+            let avg_dist = import::avg_vertex_distance(avg_pos, &points);
 
-        camera.set_camera_facing(avg_pos, avg_dist * 5.0);
+            camera.set_camera_facing(avg_pos, avg_dist * 5.0);
 
-        state.import_vertices(&points);
+            state.import_vertices(&points);
+        } else {
+            log::warn!("Ignoring `input_file` option. Can't parse as PLY.");
+        }
     }
 
     let mut last_render_time = Instant::now();
@@ -140,14 +144,19 @@ fn main() -> Result<()> {
                     }
                     WindowEvent::DroppedFile(path) => {
                         match import::import(path) {
-                            Ok(points) => {
-                                let avg_pos = import::avg_vertex_position(&points);
-                                let avg_dist = import::avg_vertex_distance(avg_pos, &points);
+                            Ok(imported) => match imported {
+                                import::Import::Ply(points) => {
+                                    let avg_pos = import::avg_vertex_position(&points);
+                                    let avg_dist = import::avg_vertex_distance(avg_pos, &points);
 
-                                camera.set_camera_facing(avg_pos, avg_dist * 5.0);
+                                    camera.set_camera_facing(avg_pos, avg_dist * 5.0);
 
-                                state.import_vertices(&points);
-                            }
+                                    state.import_vertices(&points);
+                                }
+                                import::Import::Image(img) => {
+                                    state.import_image(img, &mut app);
+                                }
+                            },
                             Err(e) => eprintln!("145 {:?}", e),
                         };
                     }
