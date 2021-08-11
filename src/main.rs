@@ -77,6 +77,7 @@ fn main() -> Result<()> {
             let avg_dist = import::avg_vertex_distance(avg_pos, &points);
 
             camera.set_camera_facing(avg_pos, avg_dist * 5.0);
+            app.set_camera_scale(avg_dist);
 
             state.import_vertices(&points);
         } else {
@@ -150,6 +151,7 @@ fn main() -> Result<()> {
                                     let avg_dist = import::avg_vertex_distance(avg_pos, &points);
 
                                     camera.set_camera_facing(avg_pos, avg_dist * 5.0);
+                                    app.set_camera_scale(avg_dist);
 
                                     state.import_vertices(&points);
                                 }
