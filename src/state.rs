@@ -12,7 +12,7 @@ use nalgebra::{IsometryMatrix3, Matrix4};
 use wgpu::{util::DeviceExt, Color, CommandEncoder, SwapChainError, SwapChainTexture};
 use winit::window::Window;
 
-use crate::{Camera, Interface};
+use crate::{Camera, Interface, face::FaceState, import::PlyData};
 
 // main.rs
 #[repr(C)]
@@ -23,7 +23,7 @@ pub struct Vertex {
 }
 
 impl Vertex {
-    fn desc<'a>() -> wgpu::VertexBufferLayout<'a> {
+    pub fn desc<'a>() -> wgpu::VertexBufferLayout<'a> {
         lazy_static! {
             static ref ATTRIBUTES: [wgpu::VertexAttribute; 2] =
                 wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x3];
@@ -47,10 +47,8 @@ pub struct State {
     swap_chain: wgpu::SwapChain,
     point_pipeline: wgpu::RenderPipeline,
     point_vertex_buffer: wgpu::Buffer,
-    face_vertex_buffer: wgpu::Buffer,
-    face_index_buffer: wgpu::Buffer,
     num_points: u32,
-    num_face_vertices: u32,
+    face_state: FaceState,
     uniforms: Uniforms,
     uniform_buffer: wgpu::Buffer,
     uniform_bind_group: wgpu::BindGroup,
@@ -166,28 +164,6 @@ impl State {
             depth_stencil: None,
             multisample: wgpu::MultisampleState::default(),
         });
-
-        let face_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("Face Render Pipeline"),
-            layout: Some(&render_pipeline_layout),
-            vertex: wgpu::VertexState {
-                module: &point_shader,
-                entry_point: "vs_main",
-                buffers: &[Vertex::desc()],
-            },
-            fragment: Some(wgpu::FragmentState {
-                module: &point_shader,
-                entry_point: "fs_main",
-                targets: &[sc_desc.format.into()],
-            }),
-            primitive: wgpu::PrimitiveState {
-                topology: wgpu::PrimitiveTopology::TriangleList,
-                polygon_mode: wgpu::PolygonMode::Fill,
-                ..Default::default()
-            },
-            depth_stencil: None,
-            multisample: wgpu::MultisampleState::default(),
-        });
         let point_vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Point Vertex Buffer"),
             contents: bytemuck::cast_slice(&[Vertex {
@@ -197,21 +173,7 @@ impl State {
             usage: wgpu::BufferUsage::VERTEX,
         });
 
-        let face_vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Face Vertex Buffer"),
-            contents: bytemuck::cast_slice(&[Vertex {
-                position: [0.0, 0.0, 0.0],
-                color: [0.0, 0.0, 0.0],
-            }]),
-            usage: wgpu::BufferUsage::VERTEX,
-        });
-
-        let face_index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Index Buffer"),
-            contents: &[],
-            usage: wgpu::BufferUsage::INDEX,
-        });
-        let num_face_vertices = 0;
+        let face_state = FaceState::new(&sc_desc, &device, &render_pipeline_layout, &point_shader);
 
         let platform = Platform::new(PlatformDescriptor {
             physical_width: size.width as u32,
@@ -229,9 +191,7 @@ impl State {
             swap_chain,
             point_pipeline,
             point_vertex_buffer,
-            face_vertex_buffer,
-            face_index_buffer,
-            num_face_vertices,
+            face_state,
             num_points: 0,
             uniform_bind_group,
             uniform_buffer,
@@ -311,8 +271,12 @@ impl State {
             render_pass.set_vertex_buffer(0, self.point_vertex_buffer.slice(..));
             render_pass.draw(0..self.num_points, 0..1);
         }
-        if (self.num_face_vertices != 0) {
-            render_pass.set_pipeline(pipeline)
+        if self.face_state.num_indices != 0 {
+            render_pass.set_pipeline(&self.face_state.pipeline);
+            render_pass.set_bind_group(0, &self.uniform_bind_group, &[]);
+            render_pass.set_vertex_buffer(0, self.face_state.vertex_buffer.slice(..));
+            render_pass.set_index_buffer(self.face_state.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+            render_pass.draw_indexed(0..self.face_state.num_indices, 0, 0..1);
         }
     }
 
@@ -386,16 +350,17 @@ impl State {
         );
     }
 
-    pub fn import_vertices(&mut self, points: &[Vertex]) {
+    pub fn import_ply_data(&mut self, ply: &PlyData) {
         self.point_vertex_buffer =
             self.device
                 .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                     label: Some("Vertex Buffer"),
-                    contents: bytemuck::cast_slice(points),
+                    contents: bytemuck::cast_slice(&ply.point_vertices),
                     usage: wgpu::BufferUsage::VERTEX,
                 });
 
-        self.num_points = points.len() as u32;
+        self.num_points = ply.point_vertices.len() as u32;
+        self.face_state.import_faces(&self.device, ply);
     }
 
     pub fn import_image(&mut self, img: DynamicImage, interface: &mut Interface) {

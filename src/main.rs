@@ -1,11 +1,10 @@
 #![warn(clippy::all, rust_2018_idioms)]
 
 mod camera;
+mod face;
 mod import;
 mod interface;
 mod state;
-mod point;
-mod face;
 
 use camera::{Camera, CameraController};
 use chrono::Timelike;
@@ -73,14 +72,14 @@ fn main() -> Result<()> {
     );
 
     if let Some(f) = opt.input_file {
-        let points = import::import(&f)?;
-        if let import::Import::Ply(points) = points {
-            let avg_pos = import::avg_vertex_position(&points);
-            let avg_dist = import::avg_vertex_distance(avg_pos, &points);
+        let import = import::import(&f)?;
+        if let import::Import::Ply(gpu_data) = import {
+            let avg_pos = import::avg_vertex_position(&gpu_data.point_vertices);
+            let avg_dist = import::avg_vertex_distance(avg_pos, &gpu_data.point_vertices);
 
             camera.set_camera_facing(avg_pos, avg_dist * 5.0);
 
-            state.import_vertices(&points);
+            state.import_ply_data(&gpu_data);
         } else {
             log::warn!("Ignoring `input_file` option. Can't parse as PLY.");
         }
@@ -147,13 +146,17 @@ fn main() -> Result<()> {
                     WindowEvent::DroppedFile(path) => {
                         match import::import(path) {
                             Ok(imported) => match imported {
-                                import::Import::Ply(points) => {
-                                    let avg_pos = import::avg_vertex_position(&points);
-                                    let avg_dist = import::avg_vertex_distance(avg_pos, &points);
+                                import::Import::Ply(ply_data) => {
+                                    let avg_pos =
+                                        import::avg_vertex_position(&ply_data.point_vertices);
+                                    let avg_dist = import::avg_vertex_distance(
+                                        avg_pos,
+                                        &ply_data.point_vertices,
+                                    );
 
                                     camera.set_camera_facing(avg_pos, avg_dist * 5.0);
 
-                                    state.import_vertices(&points);
+                                    state.import_ply_data(&ply_data);
                                 }
                                 import::Import::Image(img) => {
                                     state.import_image(img, &mut app);
