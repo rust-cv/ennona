@@ -25,6 +25,7 @@ pub struct Interface {
     pub camera_controller: CameraController,
     pub images: Vec<ImageTextureId>,
     pub displayed_image_idx: u32,
+    pub camera_scale: f32,
 }
 
 impl Interface {
@@ -36,6 +37,7 @@ impl Interface {
             camera_controller: CameraController::new(0.02, 1.0),
             images: Vec::new(),
             displayed_image_idx: 0,
+            camera_scale: 1.0,
         }
     }
 
@@ -46,6 +48,11 @@ impl Interface {
 
     pub fn update_camera(&self, camera: &mut Camera, dt: Duration) {
         self.camera_controller.update_camera(camera, dt);
+    }
+
+    pub fn set_camera_scale(&mut self, scale: f32) {
+        self.camera_scale = scale;
+        self.camera_controller.speed = scale * 0.005;
     }
 
     pub fn add_image(&mut self, texture_id: TextureId, size: (f32, f32)) {
@@ -70,10 +77,13 @@ impl Interface {
             // do nothing right now
         }
         ui.add(
-            Slider::new(&mut self.camera_controller.speed, 0.0005..=0.05)
-                .text("speed")
-                .clamp_to_range(true)
-                .logarithmic(true),
+            Slider::new(
+                &mut self.camera_controller.speed,
+                0.0005 * self.camera_scale..=0.05 * self.camera_scale,
+            )
+            .text("speed")
+            .clamp_to_range(true)
+            .logarithmic(true),
         );
         ui.add(
             Slider::new(&mut self.camera_controller.sensitivity, 0.0..=5.0)

@@ -13,14 +13,12 @@ pub struct Camera {
     pub znear: f32,
     pub zfar: f32,
     pub view_matrix: IsometryMatrix3<f32>,
-    // pitch: f32,
-    // yaw: f32,
 }
 
 impl Camera {
     pub fn build_view_projection_matrix(&self) -> Matrix4<f32> {
-        let perspective = Matrix4::from_diagonal(&Vector4::new(-1., -1., 1., 1.))
-            * Matrix4::new_perspective(self.aspect, self.fovy, self.znear, self.zfar);
+        let perspective = Matrix4::new_perspective(self.aspect, self.fovy, self.znear, self.zfar)
+            * Matrix4::from_diagonal(&Vector4::new(1.0, 1.0, -1.0, 1.0));
 
         perspective * self.view_matrix.to_matrix()
     }
@@ -34,11 +32,8 @@ impl Camera {
     pub fn set_camera_facing(&mut self, target: Point3<f32>, distance: f32) {
         self.zfar = 100. * distance;
         self.znear = distance / 100.;
-        self.view_matrix = IsometryMatrix3::face_towards(
-            &(target - (distance * Vector3::z())),
-            &target,
-            &Vector3::y(),
-        );
+        self.view_matrix = IsometryMatrix3::translation(0.0, 0.0, distance)
+            * IsometryMatrix3::translation(-target.x, -target.y, -target.z);
     }
 }
 
@@ -79,16 +74,6 @@ impl CameraController {
             scroll: 0.0,
             mouse_position: None,
         }
-    }
-
-    #[allow(dead_code)]
-    pub fn set_speed(&mut self, new_speed: f32) {
-        self.speed = new_speed;
-    }
-
-    #[allow(dead_code)]
-    pub fn set_sensitivity(&mut self, new_sensitivity: f32) {
-        self.sensitivity = new_sensitivity;
     }
 
     pub fn process_keyboard(
@@ -183,34 +168,34 @@ impl CameraController {
         if self.is_forward_pressed {
             camera
                 .view_matrix
-                .append_translation_mut(&(self.speed * Vector3::z()).into());
+                .append_translation_mut(&(self.speed * -Vector3::z()).into());
         }
         if self.is_backward_pressed {
             camera
                 .view_matrix
-                .append_translation_mut(&(self.speed * -Vector3::z()).into());
+                .append_translation_mut(&(self.speed * Vector3::z()).into());
         }
 
         if self.is_right_pressed {
             camera
                 .view_matrix
-                .append_translation_mut(&(self.speed * Vector3::x()).into());
+                .append_translation_mut(&(self.speed * -Vector3::x()).into());
         }
         if self.is_left_pressed {
             camera
                 .view_matrix
-                .append_translation_mut(&(self.speed * -Vector3::x()).into());
+                .append_translation_mut(&(self.speed * Vector3::x()).into());
         }
 
         if self.is_up_pressed {
             camera
                 .view_matrix
-                .append_translation_mut(&(self.speed * Vector3::y()).into());
+                .append_translation_mut(&(self.speed * -Vector3::y()).into());
         }
         if self.is_down_pressed {
             camera
                 .view_matrix
-                .append_translation_mut(&(self.speed * -Vector3::y()).into());
+                .append_translation_mut(&(self.speed * Vector3::y()).into());
         }
         if self.is_clock_pressed {
             camera
