@@ -6,8 +6,14 @@ use nalgebra::{distance, Point3, Vector3};
 use ply_rs::{parser::Parser, ply};
 
 pub enum Import {
-    Ply(Vec<Vertex>),
+    Ply(PlyData),
     Image(image::DynamicImage),
+}
+
+pub struct PlyData {
+    point_vertices: Vec<Vertex>,
+    face_vertices: Vec<Vertex>,
+    face_indicies: Vec<Face>,
 }
 
 pub fn import(path: &Path) -> Result<Import> {

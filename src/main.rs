@@ -4,6 +4,8 @@ mod camera;
 mod import;
 mod interface;
 mod state;
+mod point;
+mod face;
 
 use camera::{Camera, CameraController};
 use chrono::Timelike;
