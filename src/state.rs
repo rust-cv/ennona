@@ -12,7 +12,7 @@ use nalgebra::{IsometryMatrix3, Matrix4};
 use wgpu::{util::DeviceExt, Color, CommandEncoder, SwapChainError, SwapChainTexture};
 use winit::window::Window;
 
-use crate::{Camera, Interface};
+use crate::{face::FaceState, import::PlyData, Camera, Interface};
 
 // main.rs
 #[repr(C)]
@@ -23,7 +23,7 @@ pub struct Vertex {
 }
 
 impl Vertex {
-    fn desc<'a>() -> wgpu::VertexBufferLayout<'a> {
+    pub fn desc<'a>() -> wgpu::VertexBufferLayout<'a> {
         lazy_static! {
             static ref ATTRIBUTES: [wgpu::VertexAttribute; 2] =
                 wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x3];
@@ -46,8 +46,9 @@ pub struct State {
     sc_desc: wgpu::SwapChainDescriptor,
     swap_chain: wgpu::SwapChain,
     point_pipeline: wgpu::RenderPipeline,
-    vertex_buffer: wgpu::Buffer,
+    point_vertex_buffer: wgpu::Buffer,
     num_points: u32,
+    face_state: FaceState,
     uniforms: Uniforms,
     uniform_buffer: wgpu::Buffer,
     uniform_bind_group: wgpu::BindGroup,
@@ -133,7 +134,7 @@ impl State {
         let swap_chain = device.create_swap_chain(&surface, &sc_desc);
         let point_shader = device.create_shader_module(&wgpu::ShaderModuleDescriptor {
             label: Some("point shader"),
-            source: wgpu::ShaderSource::Wgsl(include_str!("shader.wgsl").into()),
+            source: wgpu::ShaderSource::Wgsl(include_str!("shaders/points.wgsl").into()),
             flags: wgpu::ShaderFlags::VALIDATION | wgpu::ShaderFlags::EXPERIMENTAL_TRANSLATION,
         });
         let render_pipeline_layout =
@@ -143,7 +144,7 @@ impl State {
                 push_constant_ranges: &[],
             });
         let point_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("Render Pipeline"),
+            label: Some("Point Render Pipeline"),
             layout: Some(&render_pipeline_layout),
             vertex: wgpu::VertexState {
                 module: &point_shader,
@@ -163,14 +164,16 @@ impl State {
             depth_stencil: None,
             multisample: wgpu::MultisampleState::default(),
         });
-        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Vertex Buffer"),
+        let point_vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Point Vertex Buffer"),
             contents: bytemuck::cast_slice(&[Vertex {
                 position: [0.0, 0.0, 0.0],
                 color: [0.0, 0.0, 0.0],
             }]),
             usage: wgpu::BufferUsage::VERTEX,
         });
+
+        let face_state = FaceState::new(&sc_desc, &device, &render_pipeline_layout, &point_shader);
 
         let platform = Platform::new(PlatformDescriptor {
             physical_width: size.width as u32,
@@ -187,7 +190,8 @@ impl State {
             sc_desc,
             swap_chain,
             point_pipeline,
-            vertex_buffer,
+            point_vertex_buffer,
+            face_state,
             num_points: 0,
             uniform_bind_group,
             uniform_buffer,
@@ -264,8 +268,18 @@ impl State {
         if self.num_points != 0 {
             render_pass.set_pipeline(&self.point_pipeline);
             render_pass.set_bind_group(0, &self.uniform_bind_group, &[]);
-            render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+            render_pass.set_vertex_buffer(0, self.point_vertex_buffer.slice(..));
             render_pass.draw(0..self.num_points, 0..1);
+        }
+        if self.face_state.num_indices != 0 {
+            render_pass.set_pipeline(&self.face_state.pipeline);
+            render_pass.set_bind_group(0, &self.uniform_bind_group, &[]);
+            render_pass.set_vertex_buffer(0, self.face_state.vertex_buffer.slice(..));
+            render_pass.set_index_buffer(
+                self.face_state.index_buffer.slice(..),
+                wgpu::IndexFormat::Uint32,
+            );
+            render_pass.draw_indexed(0..self.face_state.num_indices, 0, 0..1);
         }
     }
 
@@ -339,16 +353,17 @@ impl State {
         );
     }
 
-    pub fn import_vertices(&mut self, points: &[Vertex]) {
-        self.vertex_buffer = self
-            .device
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("Vertex Buffer"),
-                contents: bytemuck::cast_slice(points),
-                usage: wgpu::BufferUsage::VERTEX,
-            });
+    pub fn import_ply_data(&mut self, ply: &PlyData) {
+        self.point_vertex_buffer =
+            self.device
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("Vertex Buffer"),
+                    contents: bytemuck::cast_slice(&ply.point_vertices),
+                    usage: wgpu::BufferUsage::VERTEX,
+                });
 
-        self.num_points = points.len() as u32;
+        self.num_points = ply.point_vertices.len() as u32;
+        self.face_state.import_faces(&self.device, ply);
     }
 
     pub fn import_image(&mut self, img: DynamicImage, interface: &mut Interface) {
