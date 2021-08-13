@@ -12,7 +12,7 @@ use nalgebra::{IsometryMatrix3, Matrix4};
 use wgpu::{util::DeviceExt, Color, CommandEncoder, SwapChainError, SwapChainTexture};
 use winit::window::Window;
 
-use crate::{Camera, Interface, face::FaceState, import::PlyData};
+use crate::{face::FaceState, import::PlyData, Camera, Interface};
 
 // main.rs
 #[repr(C)]
@@ -275,7 +275,10 @@ impl State {
             render_pass.set_pipeline(&self.face_state.pipeline);
             render_pass.set_bind_group(0, &self.uniform_bind_group, &[]);
             render_pass.set_vertex_buffer(0, self.face_state.vertex_buffer.slice(..));
-            render_pass.set_index_buffer(self.face_state.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+            render_pass.set_index_buffer(
+                self.face_state.index_buffer.slice(..),
+                wgpu::IndexFormat::Uint32,
+            );
             render_pass.draw_indexed(0..self.face_state.num_indices, 0, 0..1);
         }
     }
