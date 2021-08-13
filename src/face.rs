@@ -1,4 +1,3 @@
-use itertools::Itertools;
 use wgpu::{
     util::DeviceExt, Buffer, Device, PipelineLayout, RenderPipeline, ShaderModule,
     SwapChainDescriptor,
@@ -79,13 +78,7 @@ impl FaceState {
         self.num_indices = ply.face_indices.len() as u32;
         self.index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Face Index Buffer"),
-            contents: bytemuck::cast_slice(
-                &ply.face_indices
-                    .iter()
-                    .copied()
-                    .map(|v| v as u32)
-                    .collect_vec(),
-            ),
+            contents: bytemuck::cast_slice(&ply.face_indices),
             usage: wgpu::BufferUsage::INDEX,
         });
     }

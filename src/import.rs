@@ -13,7 +13,7 @@ pub enum Import {
 pub struct PlyData {
     pub point_vertices: Vec<Vertex>,
     pub face_vertices: Vec<Vertex>,
-    pub face_indices: Vec<usize>,
+    pub face_indices: Vec<u32>,
 }
 
 pub fn import(path: &Path) -> Result<Import> {
@@ -70,7 +70,11 @@ pub fn import(path: &Path) -> Result<Import> {
                 if let Some(first) = face_iter.next() {
                     for (second, third) in face_iter.tuple_windows() {
                         // each set of 2 indicies is a new triangle in the triangle fan.
-                        face_indices.extend_from_slice(&[first, second, third]);
+                        face_indices.extend_from_slice(&[
+                            first as u32,
+                            second as u32,
+                            third as u32,
+                        ]);
                     }
                 }
             }
