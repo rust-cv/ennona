@@ -53,7 +53,7 @@ pub fn import(path: &Path) -> Result<Import> {
                 *all_vertices_to_face_vertices
                     .entry(index)
                     .or_insert_with(|| {
-                        let pos = face_vertices.len();
+                        let pos = face_vertices.len() as u32;
                         face_vertices.push(all_vertices[index]);
                         pos
                     })
@@ -70,11 +70,7 @@ pub fn import(path: &Path) -> Result<Import> {
                 if let Some(first) = face_iter.next() {
                     for (second, third) in face_iter.tuple_windows() {
                         // each set of 2 indicies is a new triangle in the triangle fan.
-                        face_indices.extend_from_slice(&[
-                            first as u32,
-                            second as u32,
-                            third as u32,
-                        ]);
+                        face_indices.extend_from_slice(&[first, second, third]);
                     }
                 }
             }
