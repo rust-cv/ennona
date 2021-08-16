@@ -168,34 +168,34 @@ impl CameraController {
         if self.is_forward_pressed {
             camera
                 .view_matrix
-                .append_translation_mut(&(self.speed * -Vector3::z()).into());
+                .append_translation_mut(&(dt * self.speed * -Vector3::z()).into());
         }
         if self.is_backward_pressed {
             camera
                 .view_matrix
-                .append_translation_mut(&(self.speed * Vector3::z()).into());
+                .append_translation_mut(&(dt * self.speed * Vector3::z()).into());
         }
 
         if self.is_right_pressed {
             camera
                 .view_matrix
-                .append_translation_mut(&(self.speed * -Vector3::x()).into());
+                .append_translation_mut(&(dt * self.speed * -Vector3::x()).into());
         }
         if self.is_left_pressed {
             camera
                 .view_matrix
-                .append_translation_mut(&(self.speed * Vector3::x()).into());
+                .append_translation_mut(&(dt * self.speed * Vector3::x()).into());
         }
 
         if self.is_up_pressed {
             camera
                 .view_matrix
-                .append_translation_mut(&(self.speed * -Vector3::y()).into());
+                .append_translation_mut(&(dt * self.speed * -Vector3::y()).into());
         }
         if self.is_down_pressed {
             camera
                 .view_matrix
-                .append_translation_mut(&(self.speed * Vector3::y()).into());
+                .append_translation_mut(&(dt * self.speed * Vector3::y()).into());
         }
         if self.is_clock_pressed {
             camera
@@ -203,7 +203,7 @@ impl CameraController {
                 .append_rotation_mut(&Rotation3::from_euler_angles(
                     0.,
                     0.,
-                    self.sensitivity * 0.05,
+                    dt * self.sensitivity * 0.05,
                 ));
         }
         if self.is_counter_clock_pressed {
@@ -212,7 +212,7 @@ impl CameraController {
                 .append_rotation_mut(&Rotation3::from_euler_angles(
                     0.,
                     0.,
-                    -self.sensitivity * 0.05,
+                    dt * -self.sensitivity * 0.05,
                 ));
         }
     }

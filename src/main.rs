@@ -88,21 +88,20 @@ fn main() -> Result<()> {
         }
     }
 
-    let mut last_render_time = Instant::now();
+    let mut last_update_time = Instant::now();
+    let mut last_render_time = last_update_time;
 
     event_loop.run(move |event: Event<'_, ()>, _, control_flow| {
         state.platform.handle_event(&event);
 
         match event {
             Event::RedrawRequested(_) => {
-                let now = Instant::now();
-                let dt = now - last_render_time;
-                last_render_time = now;
-                app.update_camera(&mut camera, dt);
                 state.update(&camera);
 
                 match state.render(&mut app, window.scale_factor()) {
-                    Ok(_) => {}
+                    Ok(_) => {
+                        last_render_time = last_update_time;
+                    }
                     // Recreate the swap_chain if lost
                     Err(SwapChainError::Lost) => {
                         app.resize(window.inner_size());
@@ -119,16 +118,22 @@ fn main() -> Result<()> {
                         state.rebuild_swapchain(window.inner_size());
                         window.request_redraw();
                     }
-                    // All other errors (Outdated, Timeout) should be resolved by the next frame
+                    // If there is a timeout, we should just request another redraw
+                    // and hopefully it will correct itself.
                     Err(SwapChainError::Timeout) => {
+                        eprintln!("warning: there was a timeout");
                         window.request_redraw();
                     }
                 }
-
-                *control_flow = ControlFlow::WaitUntil(Instant::now() + Duration::from_millis(15));
             }
             Event::MainEventsCleared => {
-                window.request_redraw();
+                let now = Instant::now();
+                let dt = now - last_update_time;
+                last_update_time = now;
+                app.update_camera(&mut camera, dt);
+                if last_render_time.elapsed() >= Duration::from_millis(15) {
+                    window.request_redraw();
+                }
             }
             Event::DeviceEvent { .. } => {
                 app.input(&event, &window);

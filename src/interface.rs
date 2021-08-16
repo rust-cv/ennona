@@ -34,7 +34,7 @@ impl Interface {
             file_name,
             window_width,
             window_height,
-            camera_controller: CameraController::new(0.02, 1.0),
+            camera_controller: CameraController::new(0.5, 10.0),
             images: Vec::new(),
             displayed_image_idx: 0,
             camera_scale: 1.0,
@@ -52,7 +52,7 @@ impl Interface {
 
     pub fn set_camera_scale(&mut self, scale: f32) {
         self.camera_scale = scale;
-        self.camera_controller.speed = scale * 0.005;
+        self.camera_controller.speed = scale * 5.0;
     }
 
     pub fn add_image(&mut self, texture_id: TextureId, size: (f32, f32)) {
@@ -79,14 +79,14 @@ impl Interface {
         ui.add(
             Slider::new(
                 &mut self.camera_controller.speed,
-                0.0005 * self.camera_scale..=0.05 * self.camera_scale,
+                self.camera_scale..=25.0 * self.camera_scale,
             )
             .text("speed")
             .clamp_to_range(true)
             .logarithmic(true),
         );
         ui.add(
-            Slider::new(&mut self.camera_controller.sensitivity, 0.0..=5.0)
+            Slider::new(&mut self.camera_controller.sensitivity, 1.0..=30.0)
                 .text("sensitivity")
                 .clamp_to_range(true)
                 .logarithmic(true),
