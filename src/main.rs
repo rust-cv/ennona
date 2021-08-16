@@ -37,7 +37,9 @@ struct Opt {
 // When compiling natively:
 #[cfg(not(target_arch = "wasm32"))]
 fn main() -> Result<()> {
-    use std::time::Instant;
+    use std::time::{Duration, Instant};
+
+    use wgpu::SwapChainError;
 
     let opt = Opt::from_args();
 
@@ -93,7 +95,7 @@ fn main() -> Result<()> {
 
         match event {
             Event::RedrawRequested(_) => {
-                let now = std::time::Instant::now();
+                let now = Instant::now();
                 let dt = now - last_render_time;
                 last_render_time = now;
                 app.update_camera(&mut camera, dt);
@@ -102,22 +104,28 @@ fn main() -> Result<()> {
                 match state.render(&mut app, window.scale_factor()) {
                     Ok(_) => {}
                     // Recreate the swap_chain if lost
-                    Err(wgpu::SwapChainError::Lost) => {
+                    Err(SwapChainError::Lost) => {
                         app.resize(window.inner_size());
                         camera.resize(window.inner_size());
                         state.rebuild_swapchain(window.inner_size());
+                        window.request_redraw();
                     }
                     // The system is out of memory, we should probably quit
-                    Err(wgpu::SwapChainError::OutOfMemory) => *control_flow = ControlFlow::Exit,
-
-                    Err(wgpu::SwapChainError::Outdated) => {
+                    Err(SwapChainError::OutOfMemory) => *control_flow = ControlFlow::Exit,
+                    // Swap chain is outdated (probably synchronization error)
+                    Err(SwapChainError::Outdated) => {
                         app.resize(window.inner_size());
                         camera.resize(window.inner_size());
                         state.rebuild_swapchain(window.inner_size());
+                        window.request_redraw();
                     }
                     // All other errors (Outdated, Timeout) should be resolved by the next frame
-                    Err(e) => eprintln!("107 {:?}", e),
+                    Err(SwapChainError::Timeout) => {
+                        window.request_redraw();
+                    }
                 }
+
+                *control_flow = ControlFlow::WaitUntil(Instant::now() + Duration::from_millis(15));
             }
             Event::MainEventsCleared => {
                 window.request_redraw();
