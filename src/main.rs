@@ -39,7 +39,7 @@ struct Opt {
 fn main() -> Result<()> {
     use std::time::{Duration, Instant};
 
-    use wgpu::SwapChainError;
+    use wgpu::SurfaceError;
     use winit::dpi::PhysicalPosition;
 
     let opt = Opt::from_args();
@@ -104,25 +104,18 @@ fn main() -> Result<()> {
                     Ok(_) => {
                         last_render_time = last_update_time;
                     }
-                    // Recreate the swap_chain if lost
-                    Err(SwapChainError::Lost) => {
+                    // Resize surface if lost (not sure how) or outdated (probably synchronization error)
+                    Err(SurfaceError::Lost | SurfaceError::Outdated) => {
                         app.resize(window.inner_size());
                         camera.resize(window.inner_size());
-                        state.rebuild_swapchain(window.inner_size());
+                        state.resize(window.inner_size());
                         window.request_redraw();
                     }
                     // The system is out of memory, we should probably quit
-                    Err(SwapChainError::OutOfMemory) => *control_flow = ControlFlow::Exit,
-                    // Swap chain is outdated (probably synchronization error)
-                    Err(SwapChainError::Outdated) => {
-                        app.resize(window.inner_size());
-                        camera.resize(window.inner_size());
-                        state.rebuild_swapchain(window.inner_size());
-                        window.request_redraw();
-                    }
+                    Err(SurfaceError::OutOfMemory) => *control_flow = ControlFlow::Exit,
                     // If there is a timeout, we should just request another redraw
-                    // and hopefully it will correct itself.
-                    Err(SwapChainError::Timeout) => {
+                    // and hopefully it will be able to draw next frame.
+                    Err(SurfaceError::Timeout) => {
                         eprintln!("warning: there was a timeout");
                         window.request_redraw();
                     }
@@ -152,12 +145,12 @@ fn main() -> Result<()> {
                     WindowEvent::Resized(_) => {
                         app.resize(window.inner_size());
                         camera.resize(window.inner_size());
-                        state.rebuild_swapchain(window.inner_size());
+                        state.resize(window.inner_size());
                     }
                     WindowEvent::ScaleFactorChanged { .. } => {
                         app.resize(window.inner_size());
                         camera.resize(window.inner_size());
-                        state.rebuild_swapchain(window.inner_size());
+                        state.resize(window.inner_size());
                     }
                     WindowEvent::DroppedFile(path) => {
                         match import::import(path) {

@@ -9,7 +9,7 @@ use epi::{App, TextureAllocator};
 use image::{DynamicImage, GenericImageView};
 use lazy_static::lazy_static;
 use nalgebra::{IsometryMatrix3, Matrix4};
-use wgpu::{util::DeviceExt, Color, CommandEncoder, SwapChainError, SwapChainTexture};
+use wgpu::{util::DeviceExt, Color, CommandEncoder, SurfaceError, TextureView};
 use winit::window::Window;
 
 use crate::{face::FaceState, import::PlyData, Camera, Interface};
@@ -30,7 +30,7 @@ impl Vertex {
         }
         wgpu::VertexBufferLayout {
             array_stride: std::mem::size_of::<Vertex>() as wgpu::BufferAddress,
-            step_mode: wgpu::InputStepMode::Vertex,
+            step_mode: wgpu::VertexStepMode::Vertex,
             attributes: &*ATTRIBUTES,
         }
     }
@@ -43,8 +43,7 @@ pub struct State {
     surface: wgpu::Surface,
     device: wgpu::Device,
     queue: wgpu::Queue,
-    sc_desc: wgpu::SwapChainDescriptor,
-    swap_chain: wgpu::SwapChain,
+    surface_config: wgpu::SurfaceConfiguration,
     point_pipeline: wgpu::RenderPipeline,
     point_vertex_buffer: wgpu::Buffer,
     num_points: u32,
@@ -63,7 +62,7 @@ impl State {
     pub async fn new(window: &Window) -> Self {
         let size = window.inner_size();
 
-        let instance = wgpu::Instance::new(wgpu::BackendBit::PRIMARY);
+        let instance = wgpu::Instance::new(wgpu::Backends::PRIMARY);
 
         let surface = unsafe { instance.create_surface(window) };
 
@@ -87,31 +86,16 @@ impl State {
             .await
             .unwrap();
 
-        let egui_render_pass = RenderPass::new(&device, wgpu::TextureFormat::Bgra8UnormSrgb, 1);
-
-        let start_time = Instant::now();
-        let previous_frame_time = None;
-        let sc_desc = wgpu::SwapChainDescriptor {
-            usage: wgpu::TextureUsage::RENDER_ATTACHMENT,
-            format: wgpu::TextureFormat::Bgra8UnormSrgb,
-            width: size.width,
-            height: size.height,
-            present_mode: wgpu::PresentMode::Mailbox,
-        };
-
-        let uniforms = Uniforms::new();
-
-        let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Uniform Buffer"),
-            contents: bytemuck::cast_slice(&[Uniforms::new()]),
-            usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
+        let point_shader = device.create_shader_module(&wgpu::ShaderModuleDescriptor {
+            label: Some("point shader"),
+            source: wgpu::ShaderSource::Wgsl(include_str!("shaders/points.wgsl").into()),
         });
 
-        let uniform_bind_group_layout =
+        let point_shader_uniform_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 entries: &[wgpu::BindGroupLayoutEntry {
                     binding: 0,
-                    visibility: wgpu::ShaderStage::VERTEX,
+                    visibility: wgpu::ShaderStages::VERTEX,
                     ty: wgpu::BindingType::Buffer {
                         ty: wgpu::BufferBindingType::Uniform,
                         has_dynamic_offset: false,
@@ -119,30 +103,18 @@ impl State {
                     },
                     count: None,
                 }],
-                label: Some("uniform_bind_group_layout"),
+                label: Some("Point Shader Uniform Bind Group Layout"),
             });
 
-        let uniform_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &uniform_bind_group_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: uniform_buffer.as_entire_binding(),
-            }],
-            label: Some("uniform_bind_group"),
-        });
-
-        let swap_chain = device.create_swap_chain(&surface, &sc_desc);
-        let point_shader = device.create_shader_module(&wgpu::ShaderModuleDescriptor {
-            label: Some("point shader"),
-            source: wgpu::ShaderSource::Wgsl(include_str!("shaders/points.wgsl").into()),
-            flags: wgpu::ShaderFlags::VALIDATION | wgpu::ShaderFlags::EXPERIMENTAL_TRANSLATION,
-        });
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Render Pipeline Layout"),
-                bind_group_layouts: &[&uniform_bind_group_layout],
+                bind_group_layouts: &[&point_shader_uniform_bind_group_layout],
                 push_constant_ranges: &[],
             });
+
+        let swapchain_format = surface.get_preferred_format(&adapter).unwrap();
+
         let point_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("Point Render Pipeline"),
             layout: Some(&render_pipeline_layout),
@@ -154,7 +126,7 @@ impl State {
             fragment: Some(wgpu::FragmentState {
                 module: &point_shader,
                 entry_point: "fs_main",
-                targets: &[sc_desc.format.into()],
+                targets: &[swapchain_format.into()],
             }),
             primitive: wgpu::PrimitiveState {
                 topology: wgpu::PrimitiveTopology::PointList,
@@ -164,16 +136,58 @@ impl State {
             depth_stencil: None,
             multisample: wgpu::MultisampleState::default(),
         });
+
+        let surface_config = wgpu::SurfaceConfiguration {
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+            format: swapchain_format,
+            width: size.width,
+            height: size.height,
+            present_mode: wgpu::PresentMode::Mailbox,
+        };
+
+        surface.configure(&device, &surface_config);
+
+        let start_time = Instant::now();
+        let previous_frame_time = None;
+
+        let uniforms = Uniforms::new();
+
+        let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("View-Projection Matrix"),
+            contents: bytemuck::cast_slice(&[Uniforms::new()]),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
+
+        let uniform_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &point_shader_uniform_bind_group_layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: uniform_buffer.as_entire_binding(),
+            }],
+            label: Some("uniform_bind_group"),
+        });
+
+        let render_pipeline_layout =
+            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some("Render Pipeline Layout"),
+                bind_group_layouts: &[&point_shader_uniform_bind_group_layout],
+                push_constant_ranges: &[],
+            });
         let point_vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Point Vertex Buffer"),
             contents: bytemuck::cast_slice(&[Vertex {
                 position: [0.0, 0.0, 0.0],
                 color: [0.0, 0.0, 0.0],
             }]),
-            usage: wgpu::BufferUsage::VERTEX,
+            usage: wgpu::BufferUsages::VERTEX,
         });
 
-        let face_state = FaceState::new(&sc_desc, &device, &render_pipeline_layout, &point_shader);
+        let face_state = FaceState::new(
+            swapchain_format.into(),
+            &device,
+            &render_pipeline_layout,
+            &point_shader,
+        );
 
         let platform = Platform::new(PlatformDescriptor {
             physical_width: size.width as u32,
@@ -183,12 +197,13 @@ impl State {
             style: Default::default(),
         });
 
+        let egui_render_pass = RenderPass::new(&device, swapchain_format, 1);
+
         Self {
             surface,
             device,
             queue,
-            sc_desc,
-            swap_chain,
+            surface_config,
             point_pipeline,
             point_vertex_buffer,
             face_state,
@@ -205,11 +220,11 @@ impl State {
     }
 
     /// Updates the size of the display and rebuilds the swapchain.
-    pub fn rebuild_swapchain(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
+    pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
         self.size = new_size;
-        self.sc_desc.width = new_size.width;
-        self.sc_desc.height = new_size.height;
-        self.swap_chain = self.device.create_swap_chain(&self.surface, &self.sc_desc);
+        self.surface_config.width = new_size.width;
+        self.surface_config.height = new_size.height;
+        self.surface.configure(&self.device, &self.surface_config);
     }
 
     pub fn update(&mut self, camera: &Camera) {
@@ -226,16 +241,19 @@ impl State {
         );
     }
 
-    pub fn render(&mut self, app: &mut Interface, scale_factor: f64) -> Result<(), SwapChainError> {
-        let frame = self.swap_chain.get_current_frame()?.output;
+    pub fn render(&mut self, app: &mut Interface, scale_factor: f64) -> Result<(), SurfaceError> {
+        let frame = self.surface.get_current_frame()?.output;
+        let view = frame
+            .texture
+            .create_view(&wgpu::TextureViewDescriptor::default());
         let mut encoder = self
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                 label: Some("Render Encoder"),
             });
         self.platform.begin_frame();
-        self.render_gui(app, scale_factor, &mut encoder, &frame);
-        self.render_points(&mut encoder, &frame);
+        self.render_gui(app, scale_factor, &mut encoder, &view);
+        self.render_points(&mut encoder, &view);
 
         self.queue.submit(Some(encoder.finish()));
 
@@ -245,18 +263,18 @@ impl State {
     pub fn create_initial_camera(&self) -> Camera {
         Camera {
             view_matrix: IsometryMatrix3::identity(),
-            aspect: self.sc_desc.width as f32 / self.sc_desc.height as f32,
+            aspect: self.surface_config.width as f32 / self.surface_config.height as f32,
             fovy: 45.0,
             znear: 0.1,
             zfar: 100.,
         }
     }
 
-    fn render_points(&mut self, encoder: &mut CommandEncoder, frame: &SwapChainTexture) {
+    fn render_points(&mut self, encoder: &mut CommandEncoder, view: &TextureView) {
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: None,
             color_attachments: &[wgpu::RenderPassColorAttachment {
-                view: &frame.view,
+                view,
                 resolve_target: None,
                 ops: wgpu::Operations {
                     load: wgpu::LoadOp::Load,
@@ -293,7 +311,7 @@ impl State {
         app: &mut Interface,
         scale_factor: f64,
         encoder: &mut CommandEncoder,
-        output_frame: &SwapChainTexture,
+        view: &TextureView,
     ) {
         // Begin to draw the UI frame.
         let egui_start = Instant::now();
@@ -325,8 +343,8 @@ impl State {
 
         // Upload all resources for the GPU.
         let screen_descriptor = ScreenDescriptor {
-            physical_width: self.sc_desc.width,
-            physical_height: self.sc_desc.height,
+            physical_width: self.surface_config.width,
+            physical_height: self.surface_config.height,
             scale_factor: scale_factor as f32,
         };
         self.egui_render_pass.update_texture(
@@ -344,22 +362,25 @@ impl State {
         );
 
         // Record all render passes.
-        self.egui_render_pass.execute(
-            encoder,
-            &output_frame.view,
-            &paint_jobs,
-            &screen_descriptor,
-            Some(Color::BLACK),
-        );
+        self.egui_render_pass
+            .execute(
+                encoder,
+                view,
+                &paint_jobs,
+                &screen_descriptor,
+                Some(Color::BLACK),
+            )
+            .expect("egui backend error");
     }
 
     pub fn import_ply_data(&mut self, ply: &PlyData) {
+        let contents = bytemuck::cast_slice(&ply.point_vertices);
         self.point_vertex_buffer =
             self.device
                 .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some("Vertex Buffer"),
-                    contents: bytemuck::cast_slice(&ply.point_vertices),
-                    usage: wgpu::BufferUsage::VERTEX,
+                    label: Some("Point Vertex Buffer"),
+                    contents,
+                    usage: wgpu::BufferUsages::VERTEX,
                 });
 
         self.num_points = ply.point_vertices.len() as u32;

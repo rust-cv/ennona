@@ -1,6 +1,5 @@
 use wgpu::{
-    util::DeviceExt, Buffer, Device, PipelineLayout, RenderPipeline, ShaderModule,
-    SwapChainDescriptor,
+    util::DeviceExt, Buffer, ColorTargetState, Device, PipelineLayout, RenderPipeline, ShaderModule,
 };
 
 use crate::{import::PlyData, state::Vertex};
@@ -19,7 +18,7 @@ pub struct FaceState {
 
 impl FaceState {
     pub fn new(
-        sc_desc: &SwapChainDescriptor,
+        target_format: ColorTargetState,
         device: &Device,
         render_pipeline_layout: &PipelineLayout,
         point_shader: &ShaderModule,
@@ -35,7 +34,7 @@ impl FaceState {
             fragment: Some(wgpu::FragmentState {
                 module: point_shader,
                 entry_point: "fs_main",
-                targets: &[sc_desc.format.into()],
+                targets: &[target_format],
             }),
             primitive: wgpu::PrimitiveState {
                 topology: wgpu::PrimitiveTopology::TriangleList,
@@ -52,13 +51,13 @@ impl FaceState {
                 position: [0.0, 0.0, 0.0],
                 color: [0.0, 0.0, 0.0],
             }]),
-            usage: wgpu::BufferUsage::VERTEX,
+            usage: wgpu::BufferUsages::VERTEX,
         });
 
         let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Face Index Buffer"),
             contents: &[],
-            usage: wgpu::BufferUsage::INDEX,
+            usage: wgpu::BufferUsages::INDEX,
         });
         let num_indices = 0;
         Self {
@@ -73,13 +72,13 @@ impl FaceState {
         self.vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Face Vertex Buffer"),
             contents: bytemuck::cast_slice(&ply.face_vertices),
-            usage: wgpu::BufferUsage::VERTEX,
+            usage: wgpu::BufferUsages::VERTEX,
         });
         self.num_indices = ply.face_indices.len() as u32;
         self.index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Face Index Buffer"),
             contents: bytemuck::cast_slice(&ply.face_indices),
-            usage: wgpu::BufferUsage::INDEX,
+            usage: wgpu::BufferUsages::INDEX,
         });
     }
 }
