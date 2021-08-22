@@ -40,6 +40,7 @@ fn main() -> Result<()> {
     use std::time::{Duration, Instant};
 
     use wgpu::SwapChainError;
+    use winit::dpi::PhysicalPosition;
 
     let opt = Opt::from_args();
 
@@ -90,6 +91,7 @@ fn main() -> Result<()> {
 
     let mut last_update_time = Instant::now();
     let mut last_render_time = last_update_time;
+    let mut mouse_position: Option<PhysicalPosition<f64>> = None;
 
     event_loop.run(move |event: Event<'_, ()>, _, control_flow| {
         state.platform.handle_event(&event);
@@ -179,6 +181,28 @@ fn main() -> Result<()> {
                             },
                             Err(e) => eprintln!("145 {:?}", e),
                         };
+                    }
+                    WindowEvent::CursorMoved { position, .. } => {
+                        if let Some(old_pos) = mouse_position.replace(*position) {
+                            let delta_x = position.x - old_pos.x;
+                            let delta_y = position.y - old_pos.y;
+                            if app.camera_controller.mouse_captured {
+                                let size = window.inner_size();
+                                let center = PhysicalPosition {
+                                    x: size.width / 2,
+                                    y: size.height / 2,
+                                };
+
+                                if window.set_cursor_position(center).is_ok() {
+                                    mouse_position.replace(PhysicalPosition {
+                                        x: center.x as f64,
+                                        y: center.y as f64,
+                                    });
+                                }
+                                app.camera_controller
+                                    .process_mouse(&mut camera, delta_x, delta_y);
+                            }
+                        }
                     }
                     _ => {}
                 }

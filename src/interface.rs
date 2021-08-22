@@ -2,7 +2,6 @@ use std::time::Duration;
 
 use egui::{Button, CollapsingHeader, Frame, Slider, Stroke, TextureId, Ui};
 use winit::{
-    dpi::PhysicalPosition,
     event::{Event, KeyboardInput, WindowEvent},
     window::Window,
 };
@@ -34,7 +33,7 @@ impl Interface {
             file_name,
             window_width,
             window_height,
-            camera_controller: CameraController::new(0.5, 10.0),
+            camera_controller: CameraController::new(0.5, 0.000818123),
             images: Vec::new(),
             displayed_image_idx: 0,
             camera_scale: 1.0,
@@ -86,7 +85,7 @@ impl Interface {
             .logarithmic(true),
         );
         ui.add(
-            Slider::new(&mut self.camera_controller.sensitivity, 1.0..=30.0)
+            Slider::new(&mut self.camera_controller.sensitivity, 0.0001..=0.003)
                 .text("sensitivity")
                 .clamp_to_range(true)
                 .logarithmic(true),
@@ -128,34 +127,6 @@ impl Interface {
                 WindowEvent::MouseWheel { delta, .. } => {
                     self.camera_controller.process_scroll(delta);
                     true
-                }
-                WindowEvent::CursorMoved { position, .. } => {
-                    let old_pos = match self.camera_controller.mouse_position.replace(*position) {
-                        Some(pos) => pos,
-                        None => return false,
-                    };
-                    let delta_x = position.x - old_pos.x;
-                    let delta_y = position.y - old_pos.y;
-                    if self.camera_controller.mouse_captured {
-                        let size = window.inner_size();
-                        let center = PhysicalPosition {
-                            x: size.width / 2,
-                            y: size.height / 2,
-                        };
-
-                        if window.set_cursor_position(center).is_ok() {
-                            self.camera_controller
-                                .mouse_position
-                                .replace(PhysicalPosition {
-                                    x: center.x as f64,
-                                    y: center.y as f64,
-                                });
-                        }
-                        self.camera_controller.process_mouse(delta_x, delta_y);
-                        true
-                    } else {
-                        false
-                    }
                 }
                 _ => false,
             },

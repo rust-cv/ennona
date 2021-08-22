@@ -18,7 +18,7 @@ pub struct Camera {
 impl Camera {
     pub fn build_view_projection_matrix(&self) -> Matrix4<f32> {
         let perspective = Matrix4::new_perspective(self.aspect, self.fovy, self.znear, self.zfar)
-            * Matrix4::from_diagonal(&Vector4::new(1.0, 1.0, -1.0, 1.0));
+            * Matrix4::from_diagonal(&Vector4::new(1.0, -1.0, -1.0, 1.0));
 
         perspective * self.view_matrix.to_matrix()
     }
@@ -49,9 +49,6 @@ pub struct CameraController {
     pub is_counter_clock_pressed: bool,
     pub is_clock_pressed: bool,
     pub mouse_captured: bool,
-    pub mouse_position: Option<PhysicalPosition<f64>>,
-    pub rotate_horizontal: f32,
-    pub rotate_vertical: f32,
     pub scroll: f32,
 }
 
@@ -69,10 +66,7 @@ impl CameraController {
             is_clock_pressed: false,
             is_counter_clock_pressed: false,
             mouse_captured: false,
-            rotate_horizontal: 0.0,
-            rotate_vertical: 0.0,
             scroll: 0.0,
-            mouse_position: None,
         }
     }
 
@@ -130,9 +124,26 @@ impl CameraController {
         }
     }
 
-    pub fn process_mouse(&mut self, mouse_dx: f64, mouse_dy: f64) {
-        self.rotate_horizontal = mouse_dx as f32;
-        self.rotate_vertical = mouse_dy as f32;
+    pub fn process_mouse(&mut self, camera: &mut Camera, dx: f64, dy: f64) {
+        if dx.is_normal() {
+            camera
+                .view_matrix
+                .append_rotation_mut(&Rotation3::from_euler_angles(
+                    0.,
+                    -self.sensitivity * dx as f32,
+                    0.,
+                ));
+        }
+
+        if dy.is_normal() {
+            camera
+                .view_matrix
+                .append_rotation_mut(&Rotation3::from_euler_angles(
+                    self.sensitivity * dy as f32,
+                    0.,
+                    0.,
+                ));
+        }
     }
 
     pub fn process_scroll(&mut self, delta: &MouseScrollDelta) {
@@ -145,25 +156,6 @@ impl CameraController {
 
     pub fn update_camera(&self, camera: &mut Camera, dt: Duration) {
         let dt = dt.as_secs_f32();
-        if self.rotate_horizontal != 0. {
-            camera
-                .view_matrix
-                .append_rotation_mut(&Rotation3::from_euler_angles(
-                    0.,
-                    -self.rotate_horizontal * self.sensitivity * dt,
-                    0.,
-                ));
-        }
-
-        if self.rotate_vertical != 0. {
-            camera
-                .view_matrix
-                .append_rotation_mut(&Rotation3::from_euler_angles(
-                    -self.rotate_vertical * self.sensitivity * dt,
-                    0.,
-                    0.,
-                ));
-        }
 
         if self.is_forward_pressed {
             camera
@@ -190,12 +182,12 @@ impl CameraController {
         if self.is_up_pressed {
             camera
                 .view_matrix
-                .append_translation_mut(&(dt * self.speed * -Vector3::y()).into());
+                .append_translation_mut(&(dt * self.speed * Vector3::y()).into());
         }
         if self.is_down_pressed {
             camera
                 .view_matrix
-                .append_translation_mut(&(dt * self.speed * Vector3::y()).into());
+                .append_translation_mut(&(dt * self.speed * -Vector3::y()).into());
         }
         if self.is_clock_pressed {
             camera
@@ -203,7 +195,7 @@ impl CameraController {
                 .append_rotation_mut(&Rotation3::from_euler_angles(
                     0.,
                     0.,
-                    dt * self.sensitivity * 0.05,
+                    dt * self.sensitivity * -0.05,
                 ));
         }
         if self.is_counter_clock_pressed {
@@ -212,7 +204,7 @@ impl CameraController {
                 .append_rotation_mut(&Rotation3::from_euler_angles(
                     0.,
                     0.,
-                    dt * -self.sensitivity * 0.05,
+                    dt * self.sensitivity * 0.05,
                 ));
         }
     }
