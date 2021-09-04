@@ -335,7 +335,7 @@ impl State {
         app.update(&self.platform.context(), &mut frame);
 
         // End the UI frame. We could now handle the output and draw the UI with the backend.
-        let (_output, paint_commands) = self.platform.end_frame();
+        let (_output, paint_commands) = self.platform.end_frame(None);
         let paint_jobs = self.platform.context().tessellate(paint_commands);
 
         let frame_time = (Instant::now() - egui_start).as_secs_f64() as f32;
