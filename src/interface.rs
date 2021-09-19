@@ -92,23 +92,40 @@ impl Interface {
         );
         ui.label(format!("Window width: {}", self.window_width));
         ui.label(format!("Window height: {}", self.window_height));
+    }
 
-        if self.images.len() > 1 {
-            ui.add(
-                Slider::new(
-                    &mut self.displayed_image_idx,
-                    0..=self.images.len() as u32 - 1,
-                )
-                .text("image")
-                .clamp_to_range(true)
-                .prefix("#"),
-            );
+    pub fn images_ui(&mut self, ctx: &egui::CtxRef) {
+        if self.images.is_empty() {
+            return;
         }
-        if let Some(img) = self.images.get(self.displayed_image_idx as usize) {
-            let width = 360f32;
-            let height = img.size.y * (width / img.size.x);
-            ui.image(img.texture_id, (width, height));
-        }
+
+        egui::Area::new("images").show(ctx, |ui| {
+            Frame::popup(ui.style())
+                .stroke(Stroke::none())
+                .show(ui, |ui| {
+                    ui.set_max_width(ui.available_width() * 0.20);
+                    CollapsingHeader::new("Images")
+                        .default_open(true)
+                        .show(ui, |ui| {
+                            if self.images.len() > 1 {
+                                ui.add(
+                                    Slider::new(
+                                        &mut self.displayed_image_idx,
+                                        0..=self.images.len() as u32 - 1,
+                                    )
+                                    .text("image")
+                                    .clamp_to_range(true)
+                                    .prefix("#"),
+                                );
+                            }
+                            if let Some(img) = self.images.get(self.displayed_image_idx as usize) {
+                                let width = 360f32;
+                                let height = img.size.y * (width / img.size.x);
+                                ui.image(img.texture_id, (width, height));
+                            }
+                        });
+                });
+        });
     }
 
     pub fn input(&mut self, event: &Event<'_, ()>, window: &Window) -> bool {
@@ -161,5 +178,6 @@ impl epi::App for Interface {
     /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
     fn update(&mut self, ctx: &egui::CtxRef, _frame: &mut epi::Frame<'_>) {
         egui::Area::new("settings").show(ctx, |ui| self.ui(ui));
+        self.images_ui(ctx);
     }
 }
