@@ -1,7 +1,6 @@
 use std::time::Instant;
 
 use bytemuck::{Pod, Zeroable};
-use chrono::Timelike;
 use egui::FontDefinitions;
 use egui_wgpu_backend::{RenderPass, ScreenDescriptor};
 use egui_winit_platform::{Platform, PlatformDescriptor};
@@ -70,6 +69,7 @@ impl State {
             .request_adapter(&wgpu::RequestAdapterOptions {
                 power_preference: wgpu::PowerPreference::HighPerformance,
                 compatible_surface: Some(&surface),
+                force_fallback_adapter: false,
             })
             .await
             .unwrap();
@@ -78,7 +78,8 @@ impl State {
             .request_device(
                 &wgpu::DeviceDescriptor {
                     label: None,
-                    features: wgpu::Features::NON_FILL_POLYGON_MODE,
+                    features: wgpu::Features::POLYGON_MODE_POINT
+                        | wgpu::Features::POLYGON_MODE_LINE,
                     limits: wgpu::Limits::default(),
                 },
                 None,
@@ -242,7 +243,7 @@ impl State {
     }
 
     pub fn render(&mut self, app: &mut Interface, scale_factor: f64) -> Result<(), SurfaceError> {
-        let frame = self.surface.get_current_frame()?.output;
+        let frame = self.surface.get_current_texture()?;
         let view = frame
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
@@ -319,9 +320,9 @@ impl State {
         let mut app_output = epi::backend::AppOutput::default();
         let mut frame = epi::backend::FrameBuilder {
             info: epi::IntegrationInfo {
+                name: "Ennona",
                 web_info: None,
                 cpu_usage: self.previous_frame_time,
-                seconds_since_midnight: Some(seconds_since_midnight()),
                 native_pixels_per_point: Some(scale_factor as _),
                 prefer_dark_mode: Some(false),
             },
@@ -401,12 +402,6 @@ impl State {
             .alloc_srgba_premultiplied((width as usize, height as usize), &srgba_pixels[..]);
         interface.add_image(texture_id, (width as f32, height as f32));
     }
-}
-
-/// Time of day as seconds since midnight.
-pub fn seconds_since_midnight() -> f64 {
-    let time = chrono::Local::now().time();
-    time.num_seconds_from_midnight() as f64 + 1e-9 * (time.nanosecond() as f64)
 }
 
 /// This is the repaint signal type that egui needs for requesting a repaint from another thread.
