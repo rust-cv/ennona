@@ -1,12 +1,14 @@
 [package]
 name = "ennona"
 version = "0.1.0"
-authors = ["Andrew Franco <schweebledev@gmail.com>", "Geordon Worley <vadixidav@gmail.com>"]
+authors = [
+    "Andrew Franco <schweebledev@gmail.com>",
+    "Geordon Worley <vadixidav@gmail.com>",
+]
 edition = "2018"
 resolver = "2"
 
 [dependencies]
-chrono = "0.4.19"
 futures-lite = "1.12.0"
 egui = "0.15.0"
 epi = "0.15.0"
@@ -28,4 +30,3 @@ itertools = "0.10.1"
 
 [profile.release]
 opt-level = 2 # fast and small wasm
-

@@ -2,13 +2,10 @@ use std::time::Duration;
 
 use egui::{Button, CollapsingHeader, Frame, Slider, Stroke, TextureId, Ui};
 use winit::{
-    event::{Event, KeyboardInput, WindowEvent},
+    event::{KeyboardInput, WindowEvent},
     window::Window,
 };
 
-/// We derive Deserialize/Serialize so we can persist app state on shutdown.
-// #[cfg_attr(feature = "persistence", derive(serde::Deserialize, serde::Serialize))]
-// #[cfg_attr(feature = "persistence", serde(default))] // if we add new fields, give them default values when deserializing old state
 use crate::{camera::Camera, CameraController};
 
 pub struct ImageTextureId {
@@ -111,26 +108,20 @@ impl Interface {
         }
     }
 
-    pub fn input(&mut self, event: &Event<'_, ()>, window: &Window) -> bool {
+    pub fn input(&mut self, event: &WindowEvent<'_>, window: &Window) {
+        // capture mouse-move and btn-release as `DeviceEvent`s so we can see them when the pointer leaves the screen
         match event {
-            // capture mouse-move and btn-release as `DeviceEvent`s so we can see them when the pointer leaves the screen
-            Event::WindowEvent { event, .. } => match event {
-                WindowEvent::KeyboardInput {
-                    input:
-                        KeyboardInput {
-                            virtual_keycode: Some(key),
-                            state,
-                            ..
-                        },
-                    ..
-                } => self.camera_controller.process_keyboard(key, *state, window),
-                WindowEvent::MouseWheel { delta, .. } => {
-                    self.camera_controller.process_scroll(delta);
-                    true
-                }
-                _ => false,
-            },
-            _ => false,
+            WindowEvent::KeyboardInput {
+                input:
+                    KeyboardInput {
+                        virtual_keycode: Some(key),
+                        state,
+                        ..
+                    },
+                ..
+            } => self.camera_controller.process_keyboard(key, *state, window),
+            WindowEvent::MouseWheel { delta, .. } => self.camera_controller.process_scroll(delta),
+            _ => {}
         }
     }
 }

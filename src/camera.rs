@@ -16,6 +16,17 @@ pub struct Camera {
 }
 
 impl Camera {
+    /// Creates a camera with an aspect ratio appropriate for the current window dimensions.
+    pub fn new(size: winit::dpi::PhysicalSize<u32>) -> Self {
+        Camera {
+            view_matrix: IsometryMatrix3::identity(),
+            aspect: size.width as f32 / size.height as f32,
+            fovy: 45.0,
+            znear: 0.1,
+            zfar: 100.,
+        }
+    }
+
     pub fn build_view_projection_matrix(&self) -> Matrix4<f32> {
         let perspective = Matrix4::new_perspective(self.aspect, self.fovy, self.znear, self.zfar)
             * Matrix4::from_diagonal(&Vector4::new(1.0, -1.0, -1.0, 1.0));
@@ -23,8 +34,8 @@ impl Camera {
         perspective * self.view_matrix.to_matrix()
     }
 
-    pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
-        self.aspect = new_size.width as f32 / new_size.height as f32;
+    pub fn resize(&mut self, size: winit::dpi::PhysicalSize<u32>) {
+        self.aspect = size.width as f32 / size.height as f32;
     }
 
     /// Sets the camera to be facing `target` while also changing the near and far clip planes
@@ -75,41 +86,33 @@ impl CameraController {
         keycode: &VirtualKeyCode,
         state: ElementState,
         window: &Window,
-    ) -> bool {
+    ) {
         let is_pressed = state == ElementState::Pressed;
         match keycode {
             VirtualKeyCode::Space => {
                 self.is_up_pressed = is_pressed;
-                true
             }
             VirtualKeyCode::LShift => {
                 self.is_down_pressed = is_pressed;
-                true
             }
             VirtualKeyCode::W | VirtualKeyCode::Up | VirtualKeyCode::Comma => {
                 self.is_forward_pressed = is_pressed;
-                true
             }
             VirtualKeyCode::A | VirtualKeyCode::Left => {
                 self.is_left_pressed = is_pressed;
-                true
             }
             VirtualKeyCode::S | VirtualKeyCode::Down | VirtualKeyCode::O => {
                 self.is_backward_pressed = is_pressed;
-                true
             }
             VirtualKeyCode::D | VirtualKeyCode::Right | VirtualKeyCode::E => {
                 self.is_right_pressed = is_pressed;
-                true
             }
 
             VirtualKeyCode::R => {
                 self.is_counter_clock_pressed = is_pressed;
-                true
             }
             VirtualKeyCode::T => {
                 self.is_clock_pressed = is_pressed;
-                true
             }
             VirtualKeyCode::Escape => {
                 if is_pressed {
@@ -117,10 +120,8 @@ impl CameraController {
                     let _ = window.set_cursor_grab(self.mouse_captured);
                     window.set_cursor_visible(!self.mouse_captured);
                 }
-
-                true
             }
-            _ => false,
+            _ => {}
         }
     }
 

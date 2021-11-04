@@ -1,9 +1,14 @@
-use crate::{face::Face, state::Vertex};
+use crate::points::Vertex;
 use eyre::{eyre, Result};
 use itertools::Itertools;
 use nalgebra::{distance, Point3, Vector3};
 use ply_rs::{parser::Parser, ply};
 use std::{collections::HashMap, path::Path};
+
+#[derive(Debug)]
+pub struct Face {
+    pub vertex_index: Vec<i32>,
+}
 
 pub enum Import {
     Ply(PlyData),

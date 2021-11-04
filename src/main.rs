@@ -1,14 +1,12 @@
 #![warn(clippy::all, rust_2018_idioms)]
 
 mod camera;
-mod face;
 mod import;
 mod interface;
+mod points;
 mod state;
 
 use camera::{Camera, CameraController};
-use chrono::Timelike;
-use egui_winit_platform::Platform;
 use eyre::Result;
 use futures_lite::future::block_on;
 use interface::Interface;
@@ -39,6 +37,7 @@ struct Opt {
 fn main() -> Result<()> {
     use std::time::{Duration, Instant};
 
+    use image::GenericImageView;
     use wgpu::SurfaceError;
     use winit::dpi::PhysicalPosition;
 
@@ -67,7 +66,7 @@ fn main() -> Result<()> {
     window.set_window_icon(None);
 
     let mut state = block_on(state::State::new(&window));
-    let mut camera = state.create_initial_camera();
+    let mut camera = Camera::new(window.inner_size());
     let mut app = Interface::new(
         "".into(),
         window.inner_size().height,
@@ -83,7 +82,7 @@ fn main() -> Result<()> {
             camera.set_camera_facing(avg_pos, avg_dist * 5.0);
             app.set_camera_scale(avg_dist);
 
-            state.import_ply_data(&gpu_data);
+            state.import_ply(&gpu_data);
         } else {
             log::warn!("Ignoring `input_file` option. Can't parse as PLY.");
         }
@@ -94,13 +93,16 @@ fn main() -> Result<()> {
     let mut mouse_position: Option<PhysicalPosition<f64>> = None;
 
     event_loop.run(move |event: Event<'_, ()>, _, control_flow| {
-        state.platform.handle_event(&event);
+        // Handle GUI events and if the GUI captures the event, we do not want to handle it ourselves,
+        // so return immediately in that case.
+        if state.handle_event(&event) {
+            return;
+        }
 
+        // Perform our own handling of events.
         match event {
             Event::RedrawRequested(_) => {
-                state.update(&camera);
-
-                match state.render(&mut app, window.scale_factor()) {
+                match state.render(&mut app, &camera, window.scale_factor()) {
                     Ok(_) => {
                         last_render_time = last_update_time;
                     }
@@ -129,9 +131,6 @@ fn main() -> Result<()> {
                 if last_render_time.elapsed() >= Duration::from_millis(15) {
                     window.request_redraw();
                 }
-            }
-            Event::DeviceEvent { .. } => {
-                app.input(&event, &window);
             }
             Event::WindowEvent {
                 event: ref window_event,
@@ -166,10 +165,12 @@ fn main() -> Result<()> {
                                     camera.set_camera_facing(avg_pos, avg_dist * 5.0);
                                     app.set_camera_scale(avg_dist);
 
-                                    state.import_ply_data(&ply_data);
+                                    state.import_ply(&ply_data);
                                 }
-                                import::Import::Image(img) => {
-                                    state.import_image(img, &mut app);
+                                import::Import::Image(image) => {
+                                    let size = (image.width() as f32, image.height() as f32);
+                                    let texture = state.make_egui_texture(image);
+                                    app.add_image(texture, size);
                                 }
                             },
                             Err(e) => eprintln!("145 {:?}", e),
@@ -200,40 +201,9 @@ fn main() -> Result<()> {
                     _ => {}
                 }
 
-                if !state.platform.captures_event(&event) {
-                    app.input(&event, &window);
-                }
+                app.input(&window_event, &window);
             }
             _ => (),
         }
     });
-}
-
-/// Time of day as seconds since midnight.
-pub fn seconds_since_midnight() -> f64 {
-    let time = chrono::Local::now().time();
-    time.num_seconds_from_midnight() as f64 + 1e-9 * (time.nanosecond() as f64)
-}
-
-pub fn captures_event<T>(platform: &Platform, winit_event: &Event<'_, T>) -> bool {
-    match winit_event {
-        Event::WindowEvent {
-            window_id: _window_id,
-            event,
-        } => match event {
-            WindowEvent::ReceivedCharacter(_)
-            | WindowEvent::KeyboardInput { .. }
-            | WindowEvent::ModifiersChanged(_) => platform.context().wants_keyboard_input(),
-
-            WindowEvent::MouseWheel { .. } | WindowEvent::MouseInput { .. } => {
-                platform.context().wants_pointer_input()
-            }
-
-            WindowEvent::CursorMoved { .. } => platform.context().is_using_pointer(),
-
-            _ => false,
-        },
-
-        _ => false,
-    }
 }

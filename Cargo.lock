@@ -667,7 +667,6 @@ name = "ennona"
 version = "0.1.0"
 dependencies = [
  "bytemuck",
- "chrono",
  "egui",
  "egui_demo_lib",
  "egui_wgpu_backend",
