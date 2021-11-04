@@ -1,15 +1,9 @@
-use wgpu::{
-    util::DeviceExt, BindGroup, BindGroupLayout, Buffer, Device, PipelineLayout, RenderPass,
-    RenderPipeline, ShaderModule, TextureFormat,
-};
+use wgpu::{util::DeviceExt, BindGroup, Buffer, Device, RenderPass, RenderPipeline, TextureFormat};
 
 use crate::{import::PlyData, points::Vertex};
 
 pub struct FaceRenderer {
-    shader: ShaderModule,
-    bind_group_layout: BindGroupLayout,
     bind_group: BindGroup,
-    pipeline_layout: PipelineLayout,
     render_pipeline: RenderPipeline,
     vertices: Buffer,
     indices: Buffer,
@@ -101,10 +95,7 @@ impl FaceRenderer {
 
         // Store everything in the renderer.
         Self {
-            shader,
-            bind_group_layout,
             bind_group,
-            pipeline_layout,
             render_pipeline,
             vertices,
             indices,

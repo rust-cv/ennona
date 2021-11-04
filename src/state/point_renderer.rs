@@ -1,15 +1,9 @@
-use wgpu::{
-    util::DeviceExt, BindGroup, BindGroupLayout, Buffer, Device, PipelineLayout, RenderPass,
-    RenderPipeline, ShaderModule, TextureFormat,
-};
+use wgpu::{util::DeviceExt, BindGroup, Buffer, Device, RenderPass, RenderPipeline, TextureFormat};
 
 use crate::{import::PlyData, points::Vertex};
 
 pub struct PointRenderer {
-    shader: ShaderModule,
-    bind_group_layout: BindGroupLayout,
     bind_group: BindGroup,
-    pipeline_layout: PipelineLayout,
     render_pipeline: RenderPipeline,
     vertices: Buffer,
     num_points: u32,
@@ -92,10 +86,7 @@ impl PointRenderer {
 
         // Store everything in the renderer.
         Self {
-            shader,
-            bind_group_layout,
             bind_group,
-            pipeline_layout,
             render_pipeline,
             vertices,
             num_points: 0,

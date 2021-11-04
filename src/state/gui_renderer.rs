@@ -43,6 +43,7 @@ impl GuiRenderer {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn render(
         &mut self,
         device: &Device,
