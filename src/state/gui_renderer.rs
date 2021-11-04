@@ -32,7 +32,7 @@ impl GuiRenderer {
             style: Default::default(),
         });
 
-        let egui_render_pass = RenderPass::new(&device, target_texture_format, 1);
+        let egui_render_pass = RenderPass::new(device, target_texture_format, 1);
 
         // Store everything in the renderer.
         Self {

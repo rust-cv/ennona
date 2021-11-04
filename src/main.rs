@@ -1,5 +1,3 @@
-#![warn(clippy::all, rust_2018_idioms)]
-
 mod camera;
 mod import;
 mod interface;
@@ -201,7 +199,7 @@ fn main() -> Result<()> {
                     _ => {}
                 }
 
-                app.input(&window_event, &window);
+                app.input(window_event, &window);
             }
             _ => (),
         }

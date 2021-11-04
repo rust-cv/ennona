@@ -170,6 +170,8 @@ impl State {
         // Submit the command buffer to the queue to run everything.
         self.queue.submit(Some(encoder.finish()));
 
+        frame.present();
+
         Ok(())
     }
 
