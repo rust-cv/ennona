@@ -1,4 +1,4 @@
-struct VertexOutput {
+    struct VertexOutput {
     [[builtin(position)]]
     out_position: vec4<f32>;
     [[location(0)]]

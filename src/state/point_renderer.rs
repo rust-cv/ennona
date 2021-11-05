@@ -82,7 +82,7 @@ impl PointRenderer {
             compute_pass.set_pipeline(&self.expander_pipeline);
             compute_pass.set_bind_group(0, uniform_bind_group, &[]);
             compute_pass.set_bind_group(1, &self.expander_bind_group, &[]);
-            compute_pass.dispatch(self.num_points, 1, 1);
+            compute_pass.dispatch((self.num_points as f64 / 64.0).ceil() as u32, 1, 1);
         }
     }
 

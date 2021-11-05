@@ -134,7 +134,7 @@ impl State {
         self.surface_config.width = size.width;
         self.surface_config.height = size.height;
         self.surface.configure(&self.device, &self.surface_config);
-        self.uniforms.pixel_size = 6.0 / size.height as f32;
+        self.uniforms.pixel_size = 2.0 / size.height as f32;
     }
 
     /// Renders the entire frame.
