@@ -10,16 +10,20 @@ use gui_renderer::GuiRenderer;
 use image::DynamicImage;
 use nalgebra::Matrix4;
 use point_renderer::PointRenderer;
-use wgpu::{util::DeviceExt, Color, SurfaceConfiguration, SurfaceError};
+use wgpu::{
+    util::DeviceExt, BindGroup, Buffer, Color, Device, Queue, Surface, SurfaceConfiguration,
+    SurfaceError,
+};
 use winit::{event::Event, window::Window};
 
 pub struct State {
-    surface: wgpu::Surface,
-    device: wgpu::Device,
-    queue: wgpu::Queue,
+    surface: Surface,
+    device: Device,
+    queue: Queue,
     surface_config: SurfaceConfiguration,
     uniforms: Uniforms,
-    uniform_buffer: wgpu::Buffer,
+    uniform_buffer: Buffer,
+    uniform_bind_group: BindGroup,
     point_renderer: PointRenderer,
     face_renderer: FaceRenderer,
     gui_renderer: GuiRenderer,
@@ -51,8 +55,7 @@ impl State {
             .request_device(
                 &wgpu::DeviceDescriptor {
                     label: None,
-                    features: wgpu::Features::POLYGON_MODE_POINT
-                        | wgpu::Features::POLYGON_MODE_LINE,
+                    features: wgpu::Features::empty(),
                     limits: wgpu::Limits::default(),
                 },
                 None,
@@ -67,21 +70,49 @@ impl State {
             format: target_texture_format,
             width: size.width,
             height: size.height,
-            present_mode: wgpu::PresentMode::Mailbox,
+            present_mode: wgpu::PresentMode::Fifo,
         };
         surface.configure(&device, &surface_config);
 
+        // Create the bind group layout for access to the uniforms.
+        let uniform_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                entries: &[wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::all(),
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                }],
+                label: Some("Uniform Bind Group Layout"),
+            });
+
         // Create the uniforms.
-        let uniforms = Uniforms::new();
+        let uniforms = Uniforms::new(2.0 / size.height as f32);
         let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("View-Projection Matrix"),
-            contents: bytemuck::cast_slice(&[Uniforms::new()]),
+            label: Some("Uniform Buffer"),
+            contents: bytemuck::cast_slice(&[uniforms]),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
 
+        // Create the uniform bind group.
+        let uniform_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &uniform_bind_group_layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: uniform_buffer.as_entire_binding(),
+            }],
+            label: Some("Uniform Bind Group"),
+        });
+
         // Create all of the renderers.
-        let point_renderer = PointRenderer::new(&device, &uniform_buffer, target_texture_format);
-        let face_renderer = FaceRenderer::new(&device, &uniform_buffer, target_texture_format);
+        let point_renderer =
+            PointRenderer::new(&device, &uniform_bind_group_layout, target_texture_format);
+        let face_renderer =
+            FaceRenderer::new(&device, &uniform_bind_group_layout, target_texture_format);
         let gui_renderer = GuiRenderer::new(window, &device, target_texture_format, size);
 
         Self {
@@ -91,6 +122,7 @@ impl State {
             surface_config,
             uniforms,
             uniform_buffer,
+            uniform_bind_group,
             point_renderer,
             face_renderer,
             gui_renderer,
@@ -98,10 +130,11 @@ impl State {
     }
 
     /// Updates the size of the display and rebuilds the swapchain.
-    pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
-        self.surface_config.width = new_size.width;
-        self.surface_config.height = new_size.height;
+    pub fn resize(&mut self, size: winit::dpi::PhysicalSize<u32>) {
+        self.surface_config.width = size.width;
+        self.surface_config.height = size.height;
         self.surface.configure(&self.device, &self.surface_config);
+        self.uniforms.pixel_size = 6.0 / size.height as f32;
     }
 
     /// Renders the entire frame.
@@ -112,7 +145,7 @@ impl State {
         scale_factor: f64,
     ) -> Result<(), SurfaceError> {
         // Updates the uniforms from the camera.
-        self.uniforms.view_proj = camera.build_view_projection_matrix().into();
+        self.uniforms.projection = camera.build_view_projection_matrix().into();
         self.queue.write_buffer(
             &self.uniform_buffer,
             0,
@@ -132,11 +165,18 @@ impl State {
                 label: Some("Render Encoder"),
             });
 
+        // This compute pass runs before the render pass.
+        let mut compute_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+            label: Some("Compute Pass"),
+        });
+        self.point_renderer
+            .compute(&mut compute_pass, &self.uniform_bind_group);
+        drop(compute_pass);
+
         // Clears the screen to black when this render pass executes.
-        // Create a render pass with NO depth attachment.
-        // TODO: Attach a depth buffer.
+        // TODO: Attach a depth buffer? Does it automatically create one?
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-            label: None,
+            label: Some("Render Pass"),
             color_attachments: &[wgpu::RenderPassColorAttachment {
                 view: &target,
                 resolve_target: None,
@@ -147,16 +187,13 @@ impl State {
             }],
             depth_stencil_attachment: None,
         });
-
-        // Render the points.
         self.point_renderer.render(&mut render_pass);
-
-        // Render the faces.
-        self.face_renderer.render(&mut render_pass);
-
+        self.face_renderer
+            .render(&mut render_pass, &self.uniform_bind_group);
         drop(render_pass);
 
-        // Clear the screen to black and render the GUI.
+        // Render the GUI. This internally creates a new render pass.
+        // We should see if it is possible to have this reuse the render pass we already have.
         self.gui_renderer.render(
             &self.device,
             &self.queue,
@@ -195,13 +232,15 @@ impl State {
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Pod, Zeroable)]
 struct Uniforms {
-    view_proj: [[f32; 4]; 4],
+    projection: [[f32; 4]; 4],
+    pixel_size: f32,
 }
 
 impl Uniforms {
-    pub fn new() -> Self {
+    pub fn new(pixel_size: f32) -> Self {
         Self {
-            view_proj: Matrix4::identity().into(),
+            projection: Matrix4::identity().into(),
+            pixel_size,
         }
     }
 }

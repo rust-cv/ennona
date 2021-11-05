@@ -1,22 +1,29 @@
-use lazy_static::lazy_static;
-
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
 pub struct Vertex {
     pub position: [f32; 3],
+    pub _padding0: [u8; 4],
     pub color: [f32; 3],
+    pub _padding1: [u8; 4],
 }
 
 impl Vertex {
     pub fn desc<'a>() -> wgpu::VertexBufferLayout<'a> {
-        lazy_static! {
-            static ref ATTRIBUTES: [wgpu::VertexAttribute; 2] =
-                wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x3];
-        }
         wgpu::VertexBufferLayout {
             array_stride: std::mem::size_of::<Vertex>() as wgpu::BufferAddress,
             step_mode: wgpu::VertexStepMode::Vertex,
-            attributes: &*ATTRIBUTES,
+            attributes: &[
+                wgpu::VertexAttribute {
+                    format: wgpu::VertexFormat::Float32x3,
+                    offset: 0,
+                    shader_location: 0,
+                },
+                wgpu::VertexAttribute {
+                    format: wgpu::VertexFormat::Float32x3,
+                    offset: 16,
+                    shader_location: 1,
+                },
+            ],
         }
     }
 }

@@ -1,6 +1,7 @@
 [[block]]
 struct Uniforms {
-    view_proj: mat4x4<f32>;
+    projection: mat4x4<f32>;
+    pixel_size: f32;
 };
 
 [[group(0), binding(0)]]
@@ -20,7 +21,7 @@ fn vs_main(
 ) -> VertexOutput {
     var out: VertexOutput;
     out.f_color = color;
-    out.out_position = uniforms.view_proj * vec4<f32>(position, 1.0);
+    out.out_position = uniforms.projection * vec4<f32>(position, 1.0);
     return out;
 }
 

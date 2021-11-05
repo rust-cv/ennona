@@ -115,7 +115,9 @@ impl ply::PropertyAccess for Vertex {
     fn new() -> Self {
         Vertex {
             position: [0.0, 0.0, 0.0],
+            _padding0: [0; 4],
             color: [0.0, 0.0, 0.0],
+            _padding1: [0; 4],
         }
     }
 

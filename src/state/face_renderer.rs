@@ -1,9 +1,11 @@
-use wgpu::{util::DeviceExt, BindGroup, Buffer, Device, RenderPass, RenderPipeline, TextureFormat};
+use wgpu::{
+    util::DeviceExt, BindGroup, BindGroupLayout, Buffer, Device, RenderPass, RenderPipeline,
+    TextureFormat,
+};
 
 use crate::{import::PlyData, points::Vertex};
 
 pub struct FaceRenderer {
-    bind_group: BindGroup,
     render_pipeline: RenderPipeline,
     vertices: Buffer,
     indices: Buffer,
@@ -13,7 +15,7 @@ pub struct FaceRenderer {
 impl FaceRenderer {
     pub fn new(
         device: &Device,
-        uniform_buffer: &Buffer,
+        uniform_bind_group_layout: &BindGroupLayout,
         target_texture_format: TextureFormat,
     ) -> Self {
         // Create the shader module.
@@ -22,35 +24,10 @@ impl FaceRenderer {
             source: wgpu::ShaderSource::Wgsl(include_str!("../shaders/faces.wgsl").into()),
         });
 
-        // Create the layout of the bind group.
-        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            entries: &[wgpu::BindGroupLayoutEntry {
-                binding: 0,
-                visibility: wgpu::ShaderStages::VERTEX,
-                ty: wgpu::BindingType::Buffer {
-                    ty: wgpu::BufferBindingType::Uniform,
-                    has_dynamic_offset: false,
-                    min_binding_size: None,
-                },
-                count: None,
-            }],
-            label: Some("Face Bind Group Layout"),
-        });
-
-        // Create the bind group itself, using the relevant buffers.
-        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &bind_group_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: uniform_buffer.as_entire_binding(),
-            }],
-            label: Some("Face Bind Group"),
-        });
-
         // Create the pipeline layout.
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Face Pipeline Layout"),
-            bind_group_layouts: &[&bind_group_layout],
+            bind_group_layouts: &[uniform_bind_group_layout],
             push_constant_ranges: &[],
         });
 
@@ -69,7 +46,7 @@ impl FaceRenderer {
             }),
             primitive: wgpu::PrimitiveState {
                 topology: wgpu::PrimitiveTopology::TriangleList,
-                polygon_mode: wgpu::PolygonMode::Line,
+                polygon_mode: wgpu::PolygonMode::Fill,
                 ..Default::default()
             },
             depth_stencil: None,
@@ -81,7 +58,9 @@ impl FaceRenderer {
             label: Some("Face Vertex Buffer"),
             contents: bytemuck::cast_slice(&[Vertex {
                 position: [0.0, 0.0, 0.0],
+                _padding0: [0; 4],
                 color: [0.0, 0.0, 0.0],
+                _padding1: [0; 4],
             }]),
             usage: wgpu::BufferUsages::VERTEX,
         });
@@ -95,7 +74,6 @@ impl FaceRenderer {
 
         // Store everything in the renderer.
         Self {
-            bind_group,
             render_pipeline,
             vertices,
             indices,
@@ -103,10 +81,14 @@ impl FaceRenderer {
         }
     }
 
-    pub fn render<'a>(&'a self, render_pass: &mut RenderPass<'a>) {
+    pub fn render<'a>(
+        &'a self,
+        render_pass: &mut RenderPass<'a>,
+        uniform_bind_group: &'a BindGroup,
+    ) {
         if self.num_indices != 0 {
             render_pass.set_pipeline(&self.render_pipeline);
-            render_pass.set_bind_group(0, &self.bind_group, &[]);
+            render_pass.set_bind_group(0, uniform_bind_group, &[]);
             render_pass.set_vertex_buffer(0, self.vertices.slice(..));
             render_pass.set_index_buffer(self.indices.slice(..), wgpu::IndexFormat::Uint32);
             render_pass.draw_indexed(0..self.num_indices, 0, 0..1);

@@ -30,8 +30,6 @@ struct Opt {
     input_file: Option<PathBuf>,
 }
 
-// When compiling natively:
-#[cfg(not(target_arch = "wasm32"))]
 fn main() -> Result<()> {
     use std::time::{Duration, Instant};
 

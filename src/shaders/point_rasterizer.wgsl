@@ -1,11 +1,3 @@
-[[block]]
-struct Uniforms {
-    view_proj: mat4x4<f32>;
-};
-
-[[group(0), binding(0)]]
-var<uniform> uniforms: Uniforms;
-
 struct VertexOutput {
     [[builtin(position)]]
     out_position: vec4<f32>;
@@ -20,7 +12,7 @@ fn vs_main(
 ) -> VertexOutput {
     var out: VertexOutput;
     out.f_color = color;
-    out.out_position = uniforms.view_proj * vec4<f32>(position, 1.0);
+    out.out_position = vec4<f32>(position, 1.0);
     return out;
 }
 
