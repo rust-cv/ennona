@@ -51,6 +51,7 @@ impl FaceRenderer {
             },
             depth_stencil: None,
             multisample: wgpu::MultisampleState::default(),
+            multiview: None,
         });
 
         // Create the buffer for the face verticies.

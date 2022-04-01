@@ -150,7 +150,7 @@ impl epi::App for Interface {
 
     /// Called each time the UI needs repainting, which may be many times per second.
     /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
-    fn update(&mut self, ctx: &egui::CtxRef, _frame: &mut epi::Frame<'_>) {
+    fn update(&mut self, ctx: &egui::Context, _frame: &epi::Frame) {
         egui::Area::new("settings").show(ctx, |ui| self.ui(ui));
     }
 }

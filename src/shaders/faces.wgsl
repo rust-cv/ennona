@@ -1,4 +1,3 @@
-[[block]]
 struct Uniforms {
     projection: mat4x4<f32>;
     pixel_size: f32;

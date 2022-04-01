@@ -3,8 +3,10 @@ use std::time::Instant;
 use egui::{FontDefinitions, TextureId};
 use egui_wgpu_backend::{RenderPass, ScreenDescriptor};
 use egui_winit_platform::{Platform, PlatformDescriptor};
-use epi::{App, TextureAllocator};
-use image::{DynamicImage, GenericImageView};
+use epaint::image::{ColorImage, ImageData};
+use epaint::TextureManager;
+use epi::App;
+use image::DynamicImage;
 use wgpu::{CommandEncoder, Device, Queue, SurfaceConfiguration, TextureFormat, TextureView};
 use winit::{dpi::PhysicalSize, event::Event, window::Window};
 
@@ -15,6 +17,7 @@ pub struct GuiRenderer {
     egui_render_pass: RenderPass,
     previous_frame_time: Option<f32>,
     start_time: Instant,
+    texture_manager: TextureManager,
 }
 
 impl GuiRenderer {
@@ -40,6 +43,7 @@ impl GuiRenderer {
             egui_render_pass,
             previous_frame_time: None,
             start_time: Instant::now(),
+            texture_manager: TextureManager::default(),
         }
     }
 
@@ -61,8 +65,8 @@ impl GuiRenderer {
         // Begin to draw the UI frame.
         let egui_start = Instant::now();
 
-        let mut app_output = epi::backend::AppOutput::default();
-        let mut frame = epi::backend::FrameBuilder {
+        let app_output = epi::backend::AppOutput::default();
+        let frame_data = epi::backend::FrameData {
             info: epi::IntegrationInfo {
                 name: "Ennona",
                 web_info: None,
@@ -70,18 +74,17 @@ impl GuiRenderer {
                 native_pixels_per_point: Some(scale_factor as _),
                 prefer_dark_mode: Some(false),
             },
-            tex_allocator: &mut self.egui_render_pass,
-            output: &mut app_output,
+            output: app_output,
             repaint_signal: std::sync::Arc::new(RepaintSignal),
-        }
-        .build();
+        };
+        let frame = epi::Frame::new(frame_data);
 
         // Draw the demo application.
-        app.update(&self.platform.context(), &mut frame);
+        app.update(&self.platform.context(), &frame);
 
         // End the UI frame. We could now handle the output and draw the UI with the backend.
-        let (_output, paint_commands) = self.platform.end_frame(None);
-        let paint_jobs = self.platform.context().tessellate(paint_commands);
+        let full_output = self.platform.end_frame(None);
+        let paint_jobs = self.platform.context().tessellate(full_output.shapes);
 
         let frame_time = (Instant::now() - egui_start).as_secs_f64() as f32;
         self.previous_frame_time = Some(frame_time);
@@ -93,8 +96,9 @@ impl GuiRenderer {
             scale_factor: scale_factor as f32,
         };
         self.egui_render_pass
-            .update_texture(device, queue, &self.platform.context().texture());
-        self.egui_render_pass.update_user_textures(device, queue);
+            .add_textures(device, queue, &full_output.textures_delta)
+            .expect("egui backend error");
+        //self.egui_render_pass.update_user_textures(device, queue);
         self.egui_render_pass
             .update_buffers(device, queue, &paint_jobs, &screen_descriptor);
 
@@ -113,8 +117,12 @@ impl GuiRenderer {
             .chunks(4)
             .map(|p| egui::Color32::from_rgba_unmultiplied(p[0], p[1], p[2], p[3]))
             .collect();
-        self.egui_render_pass
-            .alloc_srgba_premultiplied((width as usize, height as usize), &srgba_pixels[..])
+        let image = ImageData::Color(ColorImage {
+            size: [width as usize, height as usize],
+            pixels: srgba_pixels,
+        });
+        self.texture_manager
+            .alloc("image-pass-texture".to_string(), image)
     }
 
     /// Returns if the event was caputured by the gui.
@@ -128,7 +136,7 @@ impl GuiRenderer {
 /// It sends the custom RequestRedraw event to the winit event loop.
 struct RepaintSignal;
 
-impl epi::RepaintSignal for RepaintSignal {
+impl epi::backend::RepaintSignal for RepaintSignal {
     fn request_repaint(&self) {
         // self.0.lock().unwrap().send_event(Event::RequestRedraw).ok();
     }

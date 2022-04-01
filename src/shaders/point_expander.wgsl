@@ -1,4 +1,3 @@
-[[block]]
 struct Uniforms {
     projection: mat4x4<f32>;
     pixel_size: f32;
@@ -12,7 +11,6 @@ struct Vertex {
     color: vec3<f32>;
 };
 
-[[block]]
 struct SourceVertices {
     vertices: [[stride(32)]] array<Vertex>;
 };
@@ -20,7 +18,6 @@ struct SourceVertices {
 [[group(1), binding(0)]]
 var<storage, read> source: SourceVertices;
 
-[[block]]
 struct SinkVertices {
     vertices: [[stride(32)]] array<Vertex>;
 };

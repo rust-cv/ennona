@@ -240,5 +240,6 @@ fn render_pipeline(device: &Device, target_texture_format: TextureFormat) -> Ren
         },
         depth_stencil: None,
         multisample: wgpu::MultisampleState::default(),
+        multiview: None,
     })
 }
