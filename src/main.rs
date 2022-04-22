@@ -33,7 +33,6 @@ struct Opt {
 fn main() -> Result<()> {
     use std::time::{Duration, Instant};
 
-    use image::GenericImageView;
     use wgpu::SurfaceError;
     use winit::dpi::PhysicalPosition;
 

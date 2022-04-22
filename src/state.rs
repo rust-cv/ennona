@@ -49,14 +49,18 @@ impl State {
             .await
             .unwrap();
 
+        let adapter_features = adapter.features();
+
+        let needed_limits =
+            wgpu::Limits::downlevel_webgl2_defaults().using_resolution(adapter.limits());
         // Get the device and queue.
         // These are used to interface with the chosen GPU.
         let (device, queue) = adapter
             .request_device(
                 &wgpu::DeviceDescriptor {
                     label: None,
-                    features: wgpu::Features::empty(),
-                    limits: wgpu::Limits::default(),
+                    features: (wgpu::Features::default() & adapter_features),
+                    limits: needed_limits,
                 },
                 None,
             )
